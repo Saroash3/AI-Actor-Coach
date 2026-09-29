@@ -17,8 +17,9 @@ async function callHF(text: string, token: string, retries = 2): Promise<Respons
       "Authorization": `Bearer ${token}`,
     },
     body: JSON.stringify({
-      inputs:  text.slice(0, 512),
-      options: { wait_for_model: true, use_cache: false },
+      inputs:     text.slice(0, 512),
+      parameters: { top_k: EMOTIONS.length }, // default is top 5; the UI shows all 7 bars
+      options:    { wait_for_model: true, use_cache: false },
     }),
   })
 

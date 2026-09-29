@@ -7,8 +7,8 @@ const nextConfig = {
     unoptimized: true,
   },
   experimental: {
-    // Prevents Mongoose from being bundled by webpack (it uses native add-ons)
-    serverComponentsExternalPackages: ["mongoose"],
+    // Prevents Mongoose and pg from being bundled by webpack (they use native add-ons)
+    serverComponentsExternalPackages: ["mongoose", "pg"],
   },
 }
 

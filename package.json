@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "voice": "voice_service\\.venv\\Scripts\\python -m uvicorn app:app --app-dir voice_service --host 127.0.0.1 --port 8001",
+    "voice:online": "node scripts/start-voice-online.js",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -12,7 +14,7 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
-    "@prisma/adapter-pg": "^7.8.0",
+    "@prisma/adapter-pg": "6.2.1",
     "@prisma/client": "6.2.1",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-alert-dialog": "^1.1.15",

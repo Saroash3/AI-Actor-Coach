@@ -1,12 +1,21 @@
 /**
- * One-time seed script — run with: npm run seed
- * Reads all .txt files from the dataset folder, parses them,
+ * Library seed script — run with: npm run seed
+ * Reads all .txt files from the dataset folder, parses and cleans them,
  * and upserts them into the LibraryScript collection on MongoDB Atlas.
+ * If the dataset folder is missing, copies the pre-parsed scripts from the
+ * Ai_actor.scripts collection on the same cluster instead.
+ *
+ * Existing library scripts are skipped. Pass --force to re-import them
+ * (npm run seed -- --force); documents are updated in place, so their ids
+ * and any links to them stay valid.
  */
 
 const fs       = require('fs')
 const path     = require('path')
 const mongoose = require('mongoose')
+const { cleanScenes, getDifficulty } = require('./lib/clean-script')
+
+const FORCE = process.argv.includes('--force')
 
 // ── Load .env.local without dotenv ────────────────────────────────────────────
 const envFile = path.join(__dirname, '..', '.env.local')
@@ -28,14 +37,25 @@ if (!MONGODB_URI) {
   process.exit(1)
 }
 
-// ── Dataset location ──────────────────────────────────────────────────────────
+// ── Sources ───────────────────────────────────────────────────────────────────
 const DATASET_FOLDER = path.join(
   __dirname, '..', 'Scene Selection', 'Scene Selection', 'Project_Dataset'
 )
 
-// ── Genre map for known titles ─────────────────────────────────────────────
+// Fallback: already-parsed scripts stored in another database on the same cluster
+const ATLAS_SOURCE_DB         = 'Ai_actor'
+const ATLAS_SOURCE_COLLECTION = 'scripts'
+
+// ── Titles & genres ───────────────────────────────────────────────────────────
+// Dataset files whose content is a different film than their filename says
+// (checked against each script's title page)
+const TITLE_FIXES = {
+  '3 Godfathers':     'The Godfather',  // title page: "THE GODFATHER … MARIO PUZO"
+  'Wives and Lovers': 'The Sandlot',    // title page: "THE SANDLOT KIDS … David Mickey Evans"
+}
+
 const GENRE_MAP = {
-  '3 Godfathers':                     'Western',
+  'The Godfather':                    'Crime',
   'Avatar':                           'Sci-Fi',
   'Batman Begins':                    'Action',
   'Moonlight':                        'Drama',
@@ -59,7 +79,7 @@ const GENRE_MAP = {
   'Terminator 3 Rise of the Machines': 'Action',
   'Terminator Salvation':             'Action',
   'Titanic':                          'Drama',
-  'Wives and Lovers':                 'Romance',
+  'The Sandlot':                      'Comedy',
   'Woman in Gold':                    'Drama',
   'Wonder Boys':                      'Drama',
   'Wonder Woman':                     'Action',
@@ -67,13 +87,7 @@ const GENRE_MAP = {
   'Wrongfully Accused':               'Comedy',
 }
 
-function getDifficulty(sceneCount) {
-  if (sceneCount < 20) return 'Beginner'
-  if (sceneCount < 60) return 'Intermediate'
-  return 'Advanced'
-}
-
-// ── Parse a single .txt script file into scenes ───────────────────────────────
+// ── Parse a single .txt script file into raw scenes ───────────────────────────
 function parseTxtFile(filePath) {
   const lines = fs.readFileSync(filePath, 'utf8').split('\n')
   const scenes = []
@@ -139,50 +153,71 @@ const LibraryScript =
   mongoose.models.LibraryScript ||
   mongoose.model('LibraryScript', LibraryScriptSchema)
 
-// ── Main seed function ────────────────────────────────────────────────────────
-async function seed() {
-  await mongoose.connect(MONGODB_URI)
-  console.log('Connected to MongoDB Atlas\n')
+// ── Import one script ─────────────────────────────────────────────────────────
+const stats = { inserted: 0, updated: 0, skipped: 0 }
 
-  if (!fs.existsSync(DATASET_FOLDER)) {
-    console.error('Dataset folder not found:', DATASET_FOLDER)
-    process.exit(1)
+// Matches by source file first so renamed titles (TITLE_FIXES) update in place
+async function importScript(rawTitle, rawScenes, sourceFile) {
+  const title = TITLE_FIXES[rawTitle] || rawTitle
+  const genre = GENRE_MAP[title] || 'Film'
+
+  const existing = await LibraryScript.findOne({ $or: [{ sourceFile }, { title }] }, { _id: 1 })
+  if (existing && !FORCE) {
+    console.log(`  SKIP   ${title}`)
+    stats.skipped++
+    return
   }
 
+  const scenes     = cleanScenes(rawScenes, title)
+  const difficulty = getDifficulty(scenes)
+  const doc = { title, genre, difficulty, totalScenes: scenes.length, scenes, sourceFile }
+
+  if (existing) {
+    await LibraryScript.updateOne({ _id: existing._id }, { $set: doc })
+    stats.updated++
+  } else {
+    await LibraryScript.create(doc)
+    stats.inserted++
+  }
+  console.log(`  ${existing ? 'UPDATE' : 'INSERT'} ${title}  (${scenes.length} scenes · ${genre} · ${difficulty})`)
+}
+
+async function seedFromFolder() {
   const files = fs.readdirSync(DATASET_FOLDER).filter(f => f.endsWith('.txt'))
   console.log(`Found ${files.length} script files in dataset\n`)
-
-  let inserted = 0
-  let skipped  = 0
 
   for (const filename of files) {
     // "Batman Begins_0372784_anno.txt" → "Batman Begins"
     const title = filename.replace(/_\d+_anno\.txt$/, '').replace(/_/g, ' ')
-    const genre = GENRE_MAP[title] || 'Film'
+    await importScript(title, parseTxtFile(path.join(DATASET_FOLDER, filename)), filename)
+  }
+}
 
-    const exists = await LibraryScript.exists({ title })
-    if (exists) {
-      console.log(`  SKIP   ${title}`)
-      skipped++
-      continue
-    }
+// Source docs use snake_case scene fields and titles like "Avatar 0499549 anno"
+async function seedFromAtlas() {
+  const source = mongoose.connection.client.db(ATLAS_SOURCE_DB).collection(ATLAS_SOURCE_COLLECTION)
+  const docs   = await source.find({}).toArray()
+  console.log(`Found ${docs.length} scripts in ${ATLAS_SOURCE_DB}.${ATLAS_SOURCE_COLLECTION}\n`)
 
-    const scenes = parseTxtFile(path.join(DATASET_FOLDER, filename))
-    const difficulty = getDifficulty(scenes.length)
+  for (const doc of docs) {
+    const title = doc.title.replace(/\s+\d+\s+anno$/i, '').trim()
+    await importScript(title, doc.scenes ?? [], doc.filename || `${title}.json`)
+  }
+}
 
-    await LibraryScript.create({
-      title,
-      genre,
-      difficulty,
-      totalScenes: scenes.length,
-      scenes,
-      sourceFile: filename,
-    })
-    console.log(`  INSERT ${title}  (${scenes.length} scenes · ${genre} · ${difficulty})`)
-    inserted++
+// ── Main ──────────────────────────────────────────────────────────────────────
+async function seed() {
+  await mongoose.connect(MONGODB_URI)
+  console.log(`Connected to MongoDB Atlas${FORCE ? ' (--force: re-importing existing scripts)' : ''}\n`)
+
+  if (fs.existsSync(DATASET_FOLDER)) {
+    await seedFromFolder()
+  } else {
+    console.log(`Dataset folder not found, importing from ${ATLAS_SOURCE_DB}.${ATLAS_SOURCE_COLLECTION} instead\n`)
+    await seedFromAtlas()
   }
 
-  console.log(`\nDone. Inserted: ${inserted}  Skipped (already exist): ${skipped}`)
+  console.log(`\nDone. Inserted: ${stats.inserted}  Updated: ${stats.updated}  Skipped: ${stats.skipped}`)
   await mongoose.disconnect()
 }
 

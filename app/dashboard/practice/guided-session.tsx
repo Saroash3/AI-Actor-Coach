@@ -7,6 +7,11 @@ import {
   Mic, MicOff, Volume2, ChevronRight, CheckCircle,
   Play, Users, BookOpen, Loader2,
 } from "lucide-react"
+import { analyzeVoice, useVoiceRecorder, type VoiceAnalysisResult } from "@/lib/use-voice-recorder"
+import { scoreLine, type Baseline, type LineResult } from "@/lib/performance-scoring"
+import { LineResultCard, type AnalysisStatus } from "./line-result-card"
+import { SceneReport } from "./scene-report"
+import { Calibration, MicLevel } from "./calibration"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -17,7 +22,9 @@ type Block        = ContextBlock | SpeechBlock
 type EmotionData = { top: string; all: Record<string, number> }
 type LineEmotion = { top: string; all: Record<string, number> }
 
-type Phase = "start" | "running" | "complete"
+type Phase = "start" | "calibrate" | "running" | "complete"
+
+type LineAnalysis = { status: AnalysisStatus; result: LineResult | null; error: string | null }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -89,15 +96,12 @@ function speakText(text: string): Promise<void> {
   })
 }
 
+// The full transcript of this recognition session: every result so far, final and interim.
+// (Reading only from event.resultIndex drops everything said before the latest pause.)
 function parseRecognitionResult(event: any): string {
-  let interim = ""
-  let final   = ""
-  for (let i = event.resultIndex; i < event.results.length; i++) {
-    const text = event.results[i][0].transcript
-    if (event.results[i].isFinal) final += text
-    else interim += text
-  }
-  return final || interim
+  let text = ""
+  for (let i = 0; i < event.results.length; i++) text += event.results[i][0].transcript
+  return text.trim()
 }
 
 async function fetchEmotionData(text: string): Promise<EmotionData | null> {
@@ -246,17 +250,20 @@ function ContextBlockUI({ block, ttsPlaying, isLast, onNext }: Readonly<{
 
 // ─── Speech Block UI ──────────────────────────────────────────────────────────
 
-function SpeechBlockUI({ block, emotionData, lineEmotionList, liveEmotion, isLast, isRecording, recorded, transcript, onStartRecording, onStopRecording, onNext }: Readonly<{
+function SpeechBlockUI({ block, emotionData, lineEmotionList, isLast, isRecording, recorded, transcript, micLevel, micError, analysis, onStartRecording, onStopRecording, onRetry, onNext }: Readonly<{
   block:            SpeechBlock
   emotionData:      EmotionData | undefined
   lineEmotionList:  (LineEmotion | null)[] | undefined
-  liveEmotion:      EmotionData | null
   isLast:           boolean
   isRecording:      boolean
   recorded:         boolean
   transcript:       string
+  micLevel:         number
+  micError:         string | null
+  analysis:         LineAnalysis | undefined
   onStartRecording: () => void
   onStopRecording:  () => void
+  onRetry:          () => void
   onNext:           () => void
 }>) {
   return (
@@ -267,27 +274,22 @@ function SpeechBlockUI({ block, emotionData, lineEmotionList, liveEmotion, isLas
           <p className="text-[10px] font-bold uppercase tracking-widest text-purple-400/70 mb-1">Your turn to speak</p>
           <p className="text-2xl font-bold text-white">{block.speaker}</p>
         </div>
-        {liveEmotion 
+        {emotionData
           ? <div className="flex flex-col items-end gap-1">
-              <p className="text-[10px] text-white/30 uppercase font-bold">Live</p>
-              <EmotionBadge emotion={liveEmotion.top} />
+              <p className="text-[10px] text-white/30 uppercase font-bold">Target</p>
+              <EmotionBadge emotion={emotionData.top} />
             </div>
-          : emotionData
-            ? <div className="flex flex-col items-end gap-1">
-                <p className="text-[10px] text-white/30 uppercase font-bold">Target</p>
-                <EmotionBadge emotion={emotionData.top} />
-              </div>
-            : <DetectingBadge />
+          : <DetectingBadge />
         }
       </div>
 
       {/* Emotion breakdown */}
-      {(liveEmotion ?? emotionData) ? (
+      {emotionData ? (
         <div className="p-3 rounded-xl bg-black/20 border border-white/5">
           <p className="text-[10px] font-bold uppercase tracking-widest text-white/30 mb-2">
-            {(liveEmotion) ? "Live Performance Analysis" : "Script Analysis (Target)"}
+            Script Analysis (Target)
           </p>
-          <EmotionBreakdown data={(liveEmotion ?? emotionData) as EmotionData} />
+          <EmotionBreakdown data={emotionData} />
         </div>
       ) : (
         <div className="p-3 rounded-xl bg-black/20 border border-white/5 animate-pulse">
@@ -331,6 +333,13 @@ function SpeechBlockUI({ block, emotionData, lineEmotionList, liveEmotion, isLas
 
       {/* Recording controls */}
       <div className="space-y-3">
+        {isRecording && (
+          <div className="flex items-center justify-between p-3 rounded-xl bg-black/20 border border-white/5">
+            <span className="text-xs text-white/50">Recording · stops automatically when you pause</span>
+            <MicLevel level={micLevel} />
+          </div>
+        )}
+        {micError && <p className="text-sm text-yellow-300/90">{micError}</p>}
         {recorded ? (
           <Button
             onClick={onNext}
@@ -368,6 +377,11 @@ function SpeechBlockUI({ block, emotionData, lineEmotionList, liveEmotion, isLas
             {transcript || "…"}
           </p>
         </div>
+      )}
+
+      {/* Delivery feedback */}
+      {analysis && (
+        <LineResultCard status={analysis.status} result={analysis.result} error={analysis.error} onRetry={onRetry} />
       )}
     </div>
   )
@@ -504,29 +518,6 @@ export function StartScreen({
   )
 }
 
-// ─── Completion Screen ────────────────────────────────────────────────────────
-
-export function CompletionScreen({ onRestart }: Readonly<{ onRestart: () => void }>) {
-  return (
-    <div className="flex flex-col items-center justify-center min-h-[500px] text-center space-y-6">
-      <div className="w-24 h-24 rounded-full bg-green-500/20 border border-green-500/30 flex items-center justify-center">
-        <CheckCircle className="w-12 h-12 text-green-400" />
-      </div>
-      <h2 className="text-3xl font-bold text-white">Scene Complete!</h2>
-      <p className="text-white/50 max-w-sm">
-        Great work! You&apos;ve finished this scene. Practice again to improve your delivery.
-      </p>
-      <Button
-        onClick={onRestart}
-        size="lg"
-        className="bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-full px-10"
-      >
-        Practice Again
-      </Button>
-    </div>
-  )
-}
-
 // ─── Main Guided Session ──────────────────────────────────────────────────────
 
 export default function GuidedSession({
@@ -544,24 +535,43 @@ export default function GuidedSession({
   const [recorded,    setRecorded]    = useState(false)
   const [emotions,     setEmotions]     = useState<Record<number, EmotionData>>({})
   const [lineEmotions, setLineEmotions] = useState<Record<number, (LineEmotion | null)[]>>({})
-  const [liveEmotion,  setLiveEmotion]  = useState<EmotionData | null>(null)
+
+  // Voice analysis
+  const [voiceAvailable, setVoiceAvailable] = useState<boolean | null>(null)
+  const [calibrated,     setCalibrated]     = useState(false)
+  const [baseline,       setBaseline]       = useState<Baseline | null>(null)
+  const [analyses,       setAnalyses]       = useState<Record<number, LineAnalysis>>({})
 
   const recognitionRef        = useRef<any>(null)
   const loadedLineBlocksRef   = useRef<Set<number>>(new Set())
+  const transcriptRef         = useRef("")      // latest transcript, readable after recording stops
+  const transcriptPrefixRef   = useRef("")      // text from earlier recognition sessions in this take
+  const recordingActiveRef    = useRef(false)
+  const finishingRef          = useRef(false)
+  const emotionsRef           = useRef(emotions)
+  emotionsRef.current = emotions
+
   const currentBlock   = blocks[blockIndex]
   const isLast         = blockIndex === blocks.length - 1
 
-  // Fetch all emotions sequentially, set them all at once
+  // Is the Python voice service running?
+  useEffect(() => {
+    fetch("/api/voice/analyze")
+      .then((r) => r.json())
+      .then((d) => setVoiceAvailable(d.available === true))
+      .catch(() => setVoiceAvailable(false))
+  }, [])
+
+  // Target emotion for every speech, shown as each one arrives
   useEffect(() => {
     let cancelled = false
     async function loadEmotions() {
-      const updates: Record<number, EmotionData> = {}
       for (const [i, block] of blocks.entries()) {
         if (block.type !== "speech") continue
         const ed = await fetchEmotionData(block.lines.join(" "))
-        if (ed) updates[i] = ed
+        if (cancelled) return
+        if (ed) setEmotions((prev) => ({ ...prev, [i]: ed }))
       }
-      if (!cancelled && Object.keys(updates).length > 0) setEmotions(updates)
     }
     loadEmotions().catch(() => {})
     return () => { cancelled = true }
@@ -611,19 +621,8 @@ export default function GuidedSession({
   useEffect(() => {
     if (phase !== "running" || currentBlock?.type !== "speech") return
     setTranscript("")
-    setRecorded(false)
-    setLiveEmotion(null)
+    setRecorded(Boolean(analyses[blockIndex]))
   }, [blockIndex, phase])
-
-  // Live emotion detection for transcript
-  useEffect(() => {
-    if (!isRecording || transcript.length < 15) return
-    const timer = setTimeout(async () => {
-      const ed = await fetchEmotionData(transcript)
-      if (ed) setLiveEmotion(ed)
-    }, 1000) // Debounce 1s
-    return () => clearTimeout(timer)
-  }, [transcript, isRecording])
 
   const goNext = useCallback(() => {
     if (isLast) {
@@ -633,30 +632,116 @@ export default function GuidedSession({
     }
   }, [isLast])
 
-  const startRecording = useCallback(() => {
+  // Scores one take: waits for the final transcript, sends the audio for analysis, then scores it
+  const analyseTake = useCallback(async (index: number, wav: Blob | null, recognitionDone: Promise<void>) => {
+    const block = blocks[index] as SpeechBlock
+    setAnalyses((prev) => ({ ...prev, [index]: { status: "analyzing", result: null, error: null } }))
+
+    const voicePromise: Promise<VoiceAnalysisResult | Error | null> =
+      wav && voiceAvailable !== false ? analyzeVoice(wav).catch((err: Error) => err) : Promise.resolve(null)
+    const scriptText = block.lines.join(" ")
+    const targetPromise = emotionsRef.current[index]
+      ? Promise.resolve(emotionsRef.current[index])
+      : fetchEmotionData(scriptText)
+
+    const [, voice, target] = await Promise.all([recognitionDone, voicePromise, targetPromise])
+
+    let error: string | null = null
+    if (voice instanceof Error) error = voice.message
+    else if (voiceAvailable === false) error = "Voice analysis is offline, so only line accuracy was scored."
+
+    const result = scoreLine({
+      speaker:    block.speaker,
+      scriptText,
+      transcript: transcriptRef.current,
+      target:     target?.all ?? { neutral: 1 },
+      voice:      voice instanceof Error ? null : voice,
+      baseline,
+    })
+    setAnalyses((prev) => ({ ...prev, [index]: { status: "done", result, error } }))
+  }, [blocks, baseline, voiceAvailable])
+
+  const stopRecordingRef = useRef<() => void>(() => {})
+  const recorder = useVoiceRecorder({ onSilence: () => stopRecordingRef.current(), silenceMs: 2500 })
+
+  const startRecording = useCallback(async () => {
     const SR = (globalThis as any).SpeechRecognition || (globalThis as any).webkitSpeechRecognition
     if (!SR) {
       alert("Speech recognition is not supported. Please use Chrome or Edge.")
       return
     }
+    try {
+      await recorder.start()
+    } catch {
+      return // recorder.error explains (e.g. mic blocked)
+    }
+
+    transcriptRef.current = ""
+    transcriptPrefixRef.current = ""
+    recordingActiveRef.current = true
+    finishingRef.current = false
+
     const recognition = new SR()
     recognitionRef.current     = recognition
     recognition.continuous     = true
     recognition.interimResults = true
     recognition.lang           = "en-US"
-    recognition.onresult = (event: any) => { setTranscript(parseRecognitionResult(event)) }
-    recognition.onerror  = () => { setIsRecording(false) }
-    recognition.onend    = () => { setIsRecording(false) }
+    recognition.onresult = (event: any) => {
+      const text = `${transcriptPrefixRef.current} ${parseRecognitionResult(event)}`.trim()
+      transcriptRef.current = text
+      setTranscript(text)
+    }
+    // Chrome ends recognition on its own after a while; keep listening until the take is over
+    recognition.onend = () => {
+      if (recordingActiveRef.current && !finishingRef.current) {
+        transcriptPrefixRef.current = transcriptRef.current
+        try { recognition.start() } catch {}
+      }
+    }
+    recognition.onerror = () => {}
     recognition.start()
+
     setIsRecording(true)
     setRecorded(false)
     setTranscript("")
-  }, [])
+    setAnalyses((prev) => { const next = { ...prev }; delete next[blockIndex]; return next })
+  }, [recorder, blockIndex])
 
-  const stopRecording = useCallback(() => {
-    recognitionRef.current?.stop()
+  const stopRecording = useCallback(async () => {
+    if (!recordingActiveRef.current || finishingRef.current) return
+    finishingRef.current = true
+    recordingActiveRef.current = false
+
+    // Let speech recognition deliver its final words before scoring the transcript
+    const recognition = recognitionRef.current
+    const recognitionDone = new Promise<void>((resolve) => {
+      if (!recognition) return resolve()
+      recognition.onend = () => resolve()
+      setTimeout(resolve, 1500)
+    })
+    recognition?.stop()
+
+    const wav = await recorder.stop()
     setIsRecording(false)
     setRecorded(true)
+    analyseTake(blockIndex, wav, recognitionDone)
+  }, [recorder, analyseTake, blockIndex])
+  stopRecordingRef.current = stopRecording
+
+  const retryLine = useCallback(() => {
+    setAnalyses((prev) => { const next = { ...prev }; delete next[blockIndex]; return next })
+    setRecorded(false)
+    setTranscript("")
+  }, [blockIndex])
+
+  const restart = useCallback(() => {
+    setPhase("start")
+    setBlockIndex(0)
+    setTranscript("")
+    setRecorded(false)
+    setLineEmotions({})
+    setAnalyses({})
+    loadedLineBlocksRef.current.clear()
   }, [])
 
   if (phase === "start") {
@@ -666,24 +751,39 @@ export default function GuidedSession({
         sceneTitle={sceneTitle}
         blocks={blocks}
         emotions={emotions}
-        onStart={() => setPhase("running")}
+        onStart={() => setPhase(calibrated ? "running" : "calibrate")}
+      />
+    )
+  }
+
+  if (phase === "calibrate") {
+    return (
+      <Calibration
+        voiceAvailable={voiceAvailable}
+        onDone={(b) => {
+          setBaseline(b)
+          setCalibrated(true)
+          setPhase("running")
+        }}
       />
     )
   }
 
   if (phase === "complete") {
-    return (
-      <CompletionScreen
-        onRestart={() => {
-          setPhase("start")
-          setBlockIndex(0)
-          setTranscript("")
-          setRecorded(false)
-          setLineEmotions({})
-          loadedLineBlocksRef.current.clear()
-        }}
-      />
-    )
+    const pending = Object.values(analyses).some((a) => a.status === "analyzing")
+    if (pending) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-[400px] gap-3">
+          <Loader2 className="w-8 h-8 text-purple-400 animate-spin" />
+          <p className="text-white/70">Finishing your analysis…</p>
+        </div>
+      )
+    }
+    const lines = Object.entries(analyses)
+      .sort(([a], [b]) => Number(a) - Number(b))
+      .map(([, a]) => a.result)
+      .filter((r): r is LineResult => r != null)
+    return <SceneReport lines={lines} baseline={baseline} onRestart={restart} />
   }
 
   return (
@@ -704,13 +804,16 @@ export default function GuidedSession({
           block={currentBlock}
           emotionData={emotions[blockIndex]}
           lineEmotionList={lineEmotions[blockIndex]}
-          liveEmotion={liveEmotion}
           isLast={isLast}
           isRecording={isRecording}
           recorded={recorded}
           transcript={transcript}
+          micLevel={recorder.level}
+          micError={recorder.error}
+          analysis={analyses[blockIndex]}
           onStartRecording={startRecording}
           onStopRecording={stopRecording}
+          onRetry={retryLine}
           onNext={goNext}
         />
       )}
