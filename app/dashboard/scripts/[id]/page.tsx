@@ -1,35 +1,63 @@
 import 'server-only'
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Play, Clock, Smile, BookOpen } from "lucide-react"
 import Link from "next/link"
+import { ArrowLeft, BookOpen, Clapperboard, Clock, Layers, MessageSquareQuote, Play, Users } from "lucide-react"
 import dbConnect from "@/lib/mongodb"
 import Script from "@/models/Script"
 import LibraryScript from "@/models/LibraryScript"
 import { preloadedScripts } from "@/lib/preloaded-scripts"
+import { DifficultyBadge } from "@/components/scripts/difficulty-badge"
+import { Stagger, StaggerItem } from "@/components/magic/reveal"
+import { Spotlight } from "@/components/magic/spotlight"
+import { posterFor } from "@/lib/poster-manifest"
 
 export const dynamic = "force-dynamic"
 
 const SCENE_PREVIEW_LIMIT = 30
 
-function elementsToLines(elements: any[]): string[] {
-  return (elements ?? [])
-    .filter((el: any) => el.content?.trim())
-    .map((el: any) =>
-      el.type === "speaker" ? `[${el.content.trim()}]` : el.content.trim()
-    )
+interface SceneSlate {
+  number:     number
+  title:      string
+  duration:   string
+  characters: string[]
+  speeches:   number
+  excerpt:    { speaker: string | null; line: string } | null
 }
 
-function buildScenesFromEmbedded(embedded: any[], totalScenes: number) {
-  const shown = embedded.slice(0, SCENE_PREVIEW_LIMIT)
-  return shown.map((s: any) => ({
-    number: s.sceneNumber,
-    title: s.sceneHeading || `Scene ${s.sceneNumber}`,
-    description: `Scene ${s.sceneNumber} of ${totalScenes}`,
-    emotion: "To be determined",
-    duration: `~${Math.max(1, Math.ceil((s.elements?.length ?? 0) / 10))} min`,
-    lines: elementsToLines(s.elements ?? []).slice(0, 5),
-  }))
+// Summarises a scene for its slate: who's in it, how much talking, and a line to quote
+function slateFromElements(sceneNumber: number, heading: string, elements: any[]): SceneSlate {
+  const characters: string[] = []
+  let speeches = 0
+  let excerpt: SceneSlate["excerpt"] = null
+  let speaker: string | null = null
+
+  for (const el of elements ?? []) {
+    const content = el.content?.trim()
+    if (!content) continue
+    if (el.type === "speaker") {
+      speaker = content
+      speeches++
+      if (!characters.includes(content)) characters.push(content)
+    } else if (el.type === "dialog" && !excerpt && speaker && content.length > 12) {
+      excerpt = { speaker, line: content }
+    }
+  }
+  if (!excerpt) {
+    const text = (elements ?? []).find((el: any) => el.type === "text" && el.content?.trim().length > 20)
+    if (text) excerpt = { speaker: null, line: text.content.trim() }
+  }
+
+  return {
+    number:   sceneNumber,
+    title:    heading || `Scene ${sceneNumber}`,
+    duration: `~${Math.max(1, Math.ceil((elements?.length ?? 0) / 10))} min`,
+    characters,
+    speeches,
+    excerpt,
+  }
+}
+
+function buildSlates(embedded: any[]) {
+  return embedded.slice(0, SCENE_PREVIEW_LIMIT).map((s: any) => slateFromElements(s.sceneNumber, s.sceneHeading, s.elements ?? []))
 }
 
 export default async function ScriptDetailPage({
@@ -38,15 +66,18 @@ export default async function ScriptDetailPage({
   const { id } = await params
 
   let script: any = null
-  let scenes: any[] = []
+  let slates: SceneSlate[] = []
   let totalScenes = 0
-  let hiddenCount = 0
 
   const preloaded = preloadedScripts.find((s) => s.id === id)
   if (preloaded) {
     script = preloaded
-    scenes = preloaded.sceneData ?? []
+    const scenes = preloaded.sceneData ?? []
     totalScenes = scenes.length
+    slates = scenes.map((s: any) => ({
+      number: s.number, title: s.title, duration: s.duration, characters: [], speeches: 0,
+      excerpt: s.lines?.[0] ? { speaker: null, line: s.lines[0] } : null,
+    }))
   } else if (id?.length === 24) {
     await dbConnect()
     try {
@@ -54,7 +85,6 @@ export default async function ScriptDetailPage({
       if (dbScript) {
         const embedded: any[] = Array.isArray(dbScript.scenes) ? dbScript.scenes : []
         totalScenes = dbScript.totalScenes ?? embedded.length
-        hiddenCount = Math.max(0, embedded.length - SCENE_PREVIEW_LIMIT)
         script = {
           id: dbScript._id.toString(),
           title: dbScript.title ?? "Untitled",
@@ -63,14 +93,12 @@ export default async function ScriptDetailPage({
           difficulty: dbScript.difficulty ?? "Custom",
           isUserUploaded: true,
         }
-        scenes = buildScenesFromEmbedded(embedded, totalScenes)
+        slates = buildSlates(embedded)
       } else {
-        // Try library scripts
         const libScript = await LibraryScript.findById(id).lean<any>()
         if (libScript) {
           const embedded: any[] = Array.isArray(libScript.scenes) ? libScript.scenes : []
           totalScenes = libScript.totalScenes ?? embedded.length
-          hiddenCount = Math.max(0, embedded.length - SCENE_PREVIEW_LIMIT)
           script = {
             id:         libScript._id.toString(),
             title:      libScript.title,
@@ -79,7 +107,7 @@ export default async function ScriptDetailPage({
             difficulty: libScript.difficulty  ?? "Intermediate",
             isLibrary:  true,
           }
-          scenes = buildScenesFromEmbedded(embedded, totalScenes)
+          slates = buildSlates(embedded)
         }
       }
     } catch {
@@ -87,135 +115,159 @@ export default async function ScriptDetailPage({
     }
   }
 
+  const back = (
+    <Link href="/dashboard/scripts" className="group inline-flex items-center gap-2 text-sm text-bone/50 transition-colors hover:text-bone">
+      <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" /> Back to the library
+    </Link>
+  )
+
   if (!script) {
     return (
-      <div className="space-y-6">
-        <Button variant="ghost" asChild className="text-white/60 hover:text-white hover:bg-white/5">
-          <Link href="/dashboard/scripts">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Library
-          </Link>
-        </Button>
-        <div className="text-center py-16">
-          <BookOpen className="w-16 h-16 text-white/20 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-white mb-2">Script not found</h2>
-          <p className="text-white/40">This script may have been removed</p>
+      <div className="mx-auto max-w-5xl space-y-6">
+        {back}
+        <div className="panel flex flex-col items-center py-20 text-center">
+          <BookOpen className="h-14 w-14 text-bone/15" />
+          <h2 className="mt-4 font-display text-3xl text-bone">Script not found</h2>
+          <p className="mt-2 text-bone/45">It may have been removed from the shelf.</p>
         </div>
       </div>
     )
   }
 
+  const poster = posterFor(script.title)
+  const totalSpeeches = slates.reduce((n, s) => n + s.speeches, 0)
+  const cast = [...new Set(slates.flatMap((s) => s.characters))]
+
   return (
-    <div className="space-y-6">
-      <Button variant="ghost" asChild className="text-white/60 hover:text-white hover:bg-white/5">
-        <Link href="/dashboard/scripts">
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Library
-        </Link>
-      </Button>
+    <div className="mx-auto max-w-5xl space-y-8">
+      {back}
 
-      <div className="p-6 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10">
-        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-white">{script.title}</h1>
-            <p className="text-lg text-white/50 mt-1">by {script.author}</p>
-            {script.description && (
-              <p className="text-white/40 mt-4 max-w-2xl leading-relaxed">{script.description}</p>
-            )}
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            <Badge variant="outline" className="text-sm border-white/10 text-white/60">
-              {totalScenes} {totalScenes === 1 ? "Scene" : "Scenes"}
-            </Badge>
-            {script.genre && (
-              <Badge className="text-sm bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                {script.genre}
-              </Badge>
-            )}
-            {script.difficulty && script.difficulty !== "Custom" && (
-              <Badge className="text-sm bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-                {script.difficulty}
-              </Badge>
-            )}
+      {/* Title card */}
+      <section className="panel relative overflow-hidden p-8 md:p-10">
+        {poster && (
+          // the poster, blurred, as the card's backdrop lighting
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={poster} alt="" aria-hidden className="pointer-events-none absolute inset-0 h-full w-full scale-110 object-cover opacity-20 blur-2xl" />
+        )}
+        <Spotlight className="-left-40 -top-60 md:-left-20" />
+        <div className="relative flex flex-col gap-8 md:flex-row md:items-start">
+        {poster && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={poster}
+            alt={`${script.title} poster`}
+            className="w-36 shrink-0 self-start rounded-xl border border-white/10 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.9)] md:w-44"
+          />
+        )}
+        <div className="relative min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.25em] text-bone/45">{script.genre}</span>
+            {script.difficulty !== "Custom" && <DifficultyBadge difficulty={script.difficulty} />}
             {script.isUserUploaded && (
-              <Badge className="text-sm bg-blue-500/10 text-blue-400 border border-blue-500/20">Uploaded</Badge>
+              <span className="rounded-full border border-sky-400/25 bg-sky-400/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-sky-200">Your upload</span>
             )}
           </div>
-        </div>
-      </div>
+          <h1 className="mt-4 font-display text-5xl leading-tight text-bone md:text-6xl">{script.title}</h1>
+          {script.author && script.author !== "Film" && <p className="mt-2 text-lg text-bone/50">by {script.author}</p>}
 
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-white">Available Scenes</h2>
-          {hiddenCount > 0 && (
-            <p className="text-sm text-white/40">Showing first {SCENE_PREVIEW_LIMIT} of {totalScenes} scenes</p>
+          <dl className="mt-8 flex flex-wrap gap-x-10 gap-y-4">
+            {[
+              { icon: Layers,        value: totalScenes.toLocaleString(), label: "scenes" },
+              ...(totalSpeeches ? [{ icon: MessageSquareQuote, value: String(totalSpeeches), label: `speeches in the first ${Math.min(SCENE_PREVIEW_LIMIT, totalScenes)} scenes` }] : []),
+              ...(cast.length ? [{ icon: Users, value: String(cast.length), label: "speaking roles so far" }] : []),
+            ].map(({ icon: Icon, value, label }) => (
+              <div key={label} className="flex items-center gap-3">
+                <Icon className="h-5 w-5 text-spot-300/70" />
+                <div>
+                  <dd className="font-display text-2xl text-bone">{value}</dd>
+                  <dt className="text-xs text-bone/45">{label}</dt>
+                </div>
+              </div>
+            ))}
+          </dl>
+
+          {slates[0] && (
+            <Link href={`/dashboard/practice?script=${id}&scene=${slates[0].number}`} className="btn-spotlight group mt-8 px-6 py-3">
+              <Play className="h-4 w-4" /> Rehearse from the top
+            </Link>
           )}
         </div>
-        <div className="grid gap-4">
-          {scenes.map((scene) => (
-            <div
-              key={`scene-${scene.number}`}
-              className="group p-6 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10 hover:border-purple-500/20 transition-all"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500/20 to-blue-500/20 flex items-center justify-center border border-purple-500/20">
-                    <span className="text-lg font-bold text-purple-400">{scene.number}</span>
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-white">{scene.title}</h3>
-                    <p className="text-sm text-white/40">{scene.description}</p>
-                  </div>
-                </div>
-              </div>
+        </div>
+      </section>
 
-              <div className="flex flex-wrap items-center gap-4 mb-4">
-                {scene.emotion && (
-                  <div className="flex items-center gap-2 text-sm text-white/50">
-                    <Smile className="w-4 h-4" />
-                    <span>Emotion: {scene.emotion}</span>
-                  </div>
-                )}
-                {scene.duration && (
-                  <div className="flex items-center gap-2 text-sm text-white/50">
-                    <Clock className="w-4 h-4" />
-                    <span>{scene.duration}</span>
-                  </div>
-                )}
-              </div>
+      {/* Scene slates */}
+      <section>
+        <div className="mb-4 flex items-end justify-between">
+          <div>
+            <p className="eyebrow">Scene selection</p>
+            <h2 className="mt-1 font-display text-2xl text-bone">Choose your moment</h2>
+          </div>
+          {totalScenes > SCENE_PREVIEW_LIMIT && (
+            <p className="text-sm text-bone/40">First {SCENE_PREVIEW_LIMIT} of {totalScenes.toLocaleString()}</p>
+          )}
+        </div>
 
-              {scene.lines?.length > 0 && (
-                <div className="mb-4 p-3 rounded-xl bg-white/5 border border-white/5 max-h-20 overflow-hidden">
-                  {scene.lines.slice(0, 2).map((line: string) => (
-                    <p key={line.slice(0, 30)} className="text-sm text-white/30 italic truncate">{line}</p>
-                  ))}
-                  {scene.lines.length > 2 && (
-                    <p className="text-xs text-white/20 mt-1">...and {scene.lines.length - 2} more lines</p>
+        {slates.length === 0 ? (
+          <div className="panel py-16 text-center">
+            <BookOpen className="mx-auto h-10 w-10 text-bone/15" />
+            <p className="mt-3 text-bone/50">This script doesn&apos;t have any scenes yet.</p>
+          </div>
+        ) : (
+          <Stagger className="grid gap-4 md:grid-cols-2" gap={0.04}>
+            {slates.map((scene) => (
+              <StaggerItem key={scene.number}>
+                <Link
+                  href={`/dashboard/practice?script=${id}&scene=${scene.number}`}
+                  className="panel panel-hover group flex h-full flex-col p-5"
+                >
+                  <div className="flex items-start gap-4">
+                    {/* clapperboard slate number */}
+                    <div className="w-14 shrink-0 overflow-hidden rounded-lg border border-white/10 bg-stage-950">
+                      <div className="flex h-2.5" aria-hidden>
+                        {Array.from({ length: 5 }, (_, k) => (
+                          <span key={k} className={k % 2 ? "flex-1 bg-bone/80" : "flex-1 bg-stage-950"} style={{ transform: "skewX(-30deg)" }} />
+                        ))}
+                      </div>
+                      <div className="py-1.5 text-center">
+                        <p className="text-[8px] uppercase tracking-widest text-bone/35">Scene</p>
+                        <p className="font-display text-xl leading-none text-spot-200">{scene.number}</p>
+                      </div>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="truncate font-medium uppercase tracking-wide text-bone/90" title={scene.title}>{scene.title}</h3>
+                      <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-bone/40">
+                        <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> {scene.duration}</span>
+                        {scene.speeches > 0 && <span className="flex items-center gap-1"><MessageSquareQuote className="h-3.5 w-3.5" /> {scene.speeches} {scene.speeches === 1 ? "speech" : "speeches"}</span>}
+                      </div>
+                    </div>
+                  </div>
+
+                  {scene.characters.length > 0 && (
+                    <div className="mt-4 flex flex-wrap gap-1.5">
+                      {scene.characters.slice(0, 4).map((c) => (
+                        <span key={c} className="rounded-full border border-spot-400/20 bg-spot-400/[0.07] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-spot-200/90">{c}</span>
+                      ))}
+                      {scene.characters.length > 4 && <span className="px-1 text-[10px] text-bone/40">+{scene.characters.length - 4}</span>}
+                    </div>
                   )}
-                </div>
-              )}
 
-              <Button
-                asChild
-                className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white rounded-xl shadow-lg shadow-purple-500/25"
-              >
-                <Link href={`/dashboard/practice?script=${id}&scene=${scene.number}`}>
-                  <Play className="w-4 h-4 mr-2" />
-                  Start Practice
+                  {scene.excerpt && (
+                    <blockquote className="mt-4 line-clamp-2 border-l-2 border-spot-400/30 pl-3 text-sm italic text-bone/55">
+                      {scene.excerpt.speaker && <span className="not-italic text-[10px] font-semibold uppercase tracking-wider text-bone/40">{scene.excerpt.speaker} · </span>}
+                      {scene.excerpt.line}
+                    </blockquote>
+                  )}
+
+                  <span className="mt-auto inline-flex items-center gap-2 pt-5 text-sm text-spot-300/80 transition-colors group-hover:text-spot-200">
+                    <Clapperboard className="h-4 w-4" /> Rehearse this scene
+                    <span className="transition-transform group-hover:translate-x-1">→</span>
+                  </span>
                 </Link>
-              </Button>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {scenes.length === 0 && (
-        <div className="text-center py-12">
-          <BookOpen className="w-12 h-12 text-white/20 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-white mb-2">No scenes available</h3>
-          <p className="text-white/40">This script doesn&#39;t have scene data yet</p>
-        </div>
-      )}
+              </StaggerItem>
+            ))}
+          </Stagger>
+        )}
+      </section>
     </div>
   )
 }

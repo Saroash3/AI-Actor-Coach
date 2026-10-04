@@ -26,6 +26,34 @@ export interface Prosody {
 export interface Baseline {
   prosody:     Prosody
   wordsPerSec: number
+  /** true when estimated from the session's takes instead of a calibration recording */
+  estimated?:  boolean
+}
+
+/**
+ * Stand-in baseline when the actor skipped calibration: the average of their takes so far.
+ * Less accurate (it drifts toward whatever emotions they've played), so results are flagged.
+ */
+export function estimateBaseline(takes: { prosody: Prosody; wordsPerSec: number }[]): Baseline | null {
+  if (takes.length === 0) return null
+  const avg = (f: (t: { prosody: Prosody; wordsPerSec: number }) => number | null) => {
+    const vals = takes.map(f).filter((v): v is number => v != null)
+    return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null
+  }
+  return {
+    estimated: true,
+    wordsPerSec: avg((t) => t.wordsPerSec) ?? 2.5,
+    prosody: {
+      durationSec:   avg((t) => t.prosody.durationSec) ?? 0,
+      speechSec:     avg((t) => t.prosody.speechSec) ?? 0,
+      pitchMedianHz: avg((t) => t.prosody.pitchMedianHz),
+      pitchRangeSt:  avg((t) => t.prosody.pitchRangeSt),
+      loudnessDb:    avg((t) => t.prosody.loudnessDb) ?? 0,
+      loudnessVarDb: avg((t) => t.prosody.loudnessVarDb) ?? 0,
+      pauseCount:    avg((t) => t.prosody.pauseCount) ?? 0,
+      pauseSec:      avg((t) => t.prosody.pauseSec) ?? 0,
+    },
+  }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -244,6 +272,8 @@ export interface LineResult {
   wordsPerSec: number | null
   emotion:     number | null
   voice:       number | null
+  /** voice pattern was judged against an estimated (not calibrated) baseline */
+  voiceEstimated: boolean
   accuracy:    number
   total:       number
   features:    FeatureResult[]
@@ -311,6 +341,7 @@ export function scoreLine(input: {
     wordsPerSec,
     emotion:     emotionResult?.score ?? null,
     voice:       voiceResult?.score ?? null,
+    voiceEstimated: Boolean(voiceResult && input.baseline?.estimated),
     accuracy:    accuracyDetail.score,
     total,
     features:    voiceResult?.features ?? [],

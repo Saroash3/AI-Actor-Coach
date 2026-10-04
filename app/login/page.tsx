@@ -3,12 +3,75 @@
 import { useState, useEffect, Suspense } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Eye, EyeOff, Mail, Lock, User, ArrowLeft, AlertCircle } from "lucide-react"
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion"
+import { AlertCircle, ArrowLeft, Eye, EyeOff, GraduationCap, Loader2, Lock, Mail, Presentation, User } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
+import { Logo } from "@/components/brand/logo"
+import { Spotlight } from "@/components/magic/spotlight"
+import { cn } from "@/lib/utils"
+
+// An original screenplay page shown beside the form, typed in line by line
+const SCRIPT: { kind: "heading" | "action" | "speaker" | "paren" | "dialog"; text: string }[] = [
+  { kind: "heading", text: "INT. AUDITION ROOM - NIGHT" },
+  { kind: "action",  text: "A single spotlight. An empty chair. Dust hangs in the beam." },
+  { kind: "action",  text: "YOU step out of the dark and into the light." },
+  { kind: "speaker", text: "DIRECTOR (O.S.)" },
+  { kind: "dialog",  text: "Whenever you're ready." },
+  { kind: "speaker", text: "YOU" },
+  { kind: "paren",   text: "(a breath)" },
+  { kind: "dialog",  text: "I've been ready my whole life." },
+]
+
+function ScreenplayPage() {
+  const reduce = useReducedMotion()
+  return (
+    <div className="relative mx-auto w-full max-w-md rounded-sm bg-bone px-10 py-12 font-mono text-[13px] leading-relaxed text-stage-900 shadow-[0_40px_80px_-20px_rgba(0,0,0,0.8)]" style={{ transform: "rotate(-1.5deg)" }}>
+      {/* binder holes */}
+      <div className="absolute left-3 top-0 flex h-full flex-col justify-around py-10" aria-hidden>
+        {[0, 1, 2].map((i) => <span key={i} className="h-3 w-3 rounded-full bg-stage-950/80" />)}
+      </div>
+      <p className="absolute right-6 top-4 text-[11px] text-stage-900/50">1.</p>
+      {SCRIPT.map((line, i) => (
+        <motion.p
+          key={i}
+          initial={reduce ? false : { opacity: 0, x: -6 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5, delay: 0.4 + i * 0.35 }}
+          className={cn(
+            line.kind === "heading" && "mb-4 font-bold",
+            line.kind === "action"  && "mb-3",
+            line.kind === "speaker" && "ml-[36%] mt-4",
+            line.kind === "paren"   && "ml-[28%]",
+            line.kind === "dialog"  && "ml-[18%] mr-[12%]",
+          )}
+        >
+          {line.text}
+        </motion.p>
+      ))}
+      <motion.span
+        className="ml-[18%] inline-block h-4 w-2 translate-y-1 bg-stage-900"
+        animate={reduce ? undefined : { opacity: [1, 0, 1] }}
+        transition={{ duration: 1, repeat: Infinity }}
+        aria-hidden
+      />
+    </div>
+  )
+}
+
+function Field({ id, label, icon: Icon, children }: Readonly<{ id: string; label: string; icon: typeof Mail; children: React.ReactNode }>) {
+  return (
+    <div className="space-y-2">
+      <label htmlFor={id} className="text-sm text-bone/70">{label}</label>
+      <div className="group relative">
+        <Icon className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-bone/30 transition-colors group-focus-within:text-spot-300" />
+        {children}
+      </div>
+    </div>
+  )
+}
+
+const inputClass =
+  "h-12 w-full rounded-xl border border-white/[0.08] bg-white/[0.03] pl-11 pr-11 text-bone placeholder:text-bone/25 outline-none transition-colors focus:border-spot-400/50 focus:bg-white/[0.05]"
 
 function LoginContent() {
   const searchParams = useSearchParams()
@@ -20,21 +83,21 @@ function LoginContent() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
 
-  // Form fields
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
 
-  const { login, signup, user } = useAuth()
+  const { user } = useAuth()
   const router = useRouter()
 
   // Redirect if already logged in
   useEffect(() => {
-    if (user) {
-      router.replace("/dashboard")
-    }
+    if (user) router.replace("/dashboard")
   }, [user, router])
+
+  // Clear error when switching modes
+  useEffect(() => { setError("") }, [mode])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -48,17 +111,13 @@ function LoginContent() {
           setIsLoading(false)
           return
         }
-
         const res = await fetch("/api/auth/signup", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name, email, password, role }),
         })
-
         const data = await res.json()
         if (!res.ok) throw new Error(data.error || "Failed to sign up")
-
-        // Trigger context update if needed
         window.location.href = "/dashboard"
       } else {
         const res = await fetch("/api/auth/login", {
@@ -66,10 +125,8 @@ function LoginContent() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email, password }),
         })
-
         const data = await res.json()
         if (!res.ok) throw new Error(data.error || "Failed to log in")
-        
         window.location.href = "/dashboard"
       }
     } catch (err: any) {
@@ -78,282 +135,148 @@ function LoginContent() {
     }
   }
 
-  // Clear error when switching modes
-  useEffect(() => {
-    setError("")
-  }, [mode])
+  const signup = mode === "signup"
 
   return (
-    <div className="min-h-screen bg-[#0a0e1a] flex relative overflow-hidden">
-      {/* Animated Background Elements */}
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-purple-600/20 rounded-full blur-[128px] animate-pulse" />
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-600/20 rounded-full blur-[128px] animate-pulse" style={{ animationDelay: '1s' }} />
-        <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-cyan-600/10 rounded-full blur-[100px] animate-pulse" style={{ animationDelay: '2s' }} />
-      </div>
-
-      {/* Left side - Form */}
-      <div className="flex-1 flex items-center justify-center p-8 relative z-10">
-        <div className="w-full max-w-md">
-          {/* Back button */}
-          <Link 
-            href="/" 
-            className="inline-flex items-center gap-2 text-white/50 hover:text-white mb-8 transition-colors group"
-          >
-            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-            Back to home
-          </Link>
-
-          {/* Glass Card */}
-          <div className="relative">
-            {/* Glow effect */}
-            <div className="absolute -inset-1 bg-gradient-to-r from-purple-500/20 to-blue-500/20 rounded-3xl blur-xl" />
-            
-            <div className="relative bg-white/5 backdrop-blur-2xl rounded-2xl border border-white/10 p-8">
-              {/* Logo */}
-              <div className="flex items-center gap-2 mb-8">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center shadow-lg shadow-purple-500/25">
-                  <span className="text-white font-bold">A</span>
-                </div>
-                <span className="text-white font-semibold text-xl">
-                  Actor<span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-cyan-400">Pro</span> AI
-                </span>
-              </div>
-
-              {/* Title */}
-              <h1 className="text-2xl font-bold text-white mb-2">
-                {mode === "login" ? "Welcome back" : "Create an account"}
-              </h1>
-              <p className="text-white/50 mb-6">
-                {mode === "login" 
-                  ? "Enter your credentials to access your account" 
-                  : "Sign up to start improving your acting skills"}
-              </p>
-
-              {/* Error message */}
-              {error && (
-                <div className="flex items-center gap-2 p-3 mb-6 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  {error}
-                </div>
-              )}
-
-              {/* Form */}
-              <form onSubmit={handleSubmit} className="space-y-5">
-                {mode === "signup" && (
-                  <div className="space-y-2">
-                    <Label htmlFor="name" className="text-white/70">Full Name</Label>
-                    <div className="relative group">
-                      <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 group-focus-within:text-purple-400 transition-colors" />
-                      <Input
-                        id="name"
-                        type="text"
-                        placeholder="John Doe"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        className="pl-11 bg-white/5 border-white/10 text-white placeholder:text-white/25 focus:border-purple-500/50 focus:ring-purple-500/20 rounded-xl h-12"
-                        required
-                      />
-                    </div>
-                  </div>
-                )}
-
-                <div className="space-y-2">
-                  <Label htmlFor="email" className="text-white/70">Email</Label>
-                  <div className="relative group">
-                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 group-focus-within:text-purple-400 transition-colors" />
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="you@example.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="pl-11 bg-white/5 border-white/10 text-white placeholder:text-white/25 focus:border-purple-500/50 focus:ring-purple-500/20 rounded-xl h-12"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="password" className="text-white/70">Password</Label>
-                  <div className="relative group">
-                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 group-focus-within:text-purple-400 transition-colors" />
-                    <Input
-                      id="password"
-                      type={showPassword ? "text" : "password"}
-                      placeholder="Enter your password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="pl-11 pr-11 bg-white/5 border-white/10 text-white placeholder:text-white/25 focus:border-purple-500/50 focus:ring-purple-500/20 rounded-xl h-12"
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors"
-                    >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
-
-                {mode === "signup" && (
-                  <>
-                    <div className="space-y-2">
-                      <Label htmlFor="confirmPassword" className="text-white/70">Confirm Password</Label>
-                      <div className="relative group">
-                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 group-focus-within:text-purple-400 transition-colors" />
-                        <Input
-                          id="confirmPassword"
-                          type={showConfirmPassword ? "text" : "password"}
-                          placeholder="Confirm your password"
-                          value={confirmPassword}
-                          onChange={(e) => setConfirmPassword(e.target.value)}
-                          className="pl-11 pr-11 bg-white/5 border-white/10 text-white placeholder:text-white/25 focus:border-purple-500/50 focus:ring-purple-500/20 rounded-xl h-12"
-                          required
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                          className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors"
-                        >
-                          {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="space-y-3">
-                      <Label className="text-white/70">I am a</Label>
-                      <div className="flex gap-3">
-                        <button
-                          type="button"
-                          onClick={() => setRole("student")}
-                          className={`flex-1 py-4 px-4 rounded-xl border-2 transition-all ${
-                            role === "student"
-                              ? "border-purple-500 bg-purple-500/10 text-purple-400 shadow-lg shadow-purple-500/20"
-                              : "border-white/10 hover:border-white/20 text-white/50 bg-white/5"
-                          }`}
-                        >
-                          <div className="flex flex-col items-center gap-2">
-                            <User className="w-5 h-5" />
-                            <span className="font-medium text-sm">Student</span>
-                          </div>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setRole("teacher")}
-                          className={`flex-1 py-4 px-4 rounded-xl border-2 transition-all ${
-                            role === "teacher"
-                              ? "border-purple-500 bg-purple-500/10 text-purple-400 shadow-lg shadow-purple-500/20"
-                              : "border-white/10 hover:border-white/20 text-white/50 bg-white/5"
-                          }`}
-                        >
-                          <div className="flex flex-col items-center gap-2">
-                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                            </svg>
-                            <span className="font-medium text-sm">Teacher</span>
-                          </div>
-                        </button>
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                {mode === "login" && (
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <Checkbox id="remember" className="border-white/20 data-[state=checked]:bg-purple-500 data-[state=checked]:border-purple-500" />
-                      <Label htmlFor="remember" className="text-sm font-normal cursor-pointer text-white/50">
-                        Remember me
-                      </Label>
-                    </div>
-                    <Link href="#" className="text-sm text-purple-400 hover:text-purple-300 transition-colors">
-                      Forgot password?
-                    </Link>
-                  </div>
-                )}
-
-                <Button 
-                  type="submit" 
-                  className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-semibold rounded-xl h-12 shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 transition-all" 
-                  disabled={isLoading}
-                >
-                  {isLoading ? (
-                    <span className="flex items-center gap-2">
-                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                      </svg>
-                      {mode === "login" ? "Signing in..." : "Creating account..."}
-                    </span>
-                  ) : (
-                    mode === "login" ? "Sign In" : "Create Account"
-                  )}
-                </Button>
-
-                <p className="text-center text-sm text-white/50">
-                  {mode === "login" ? (
-                    <>
-                      {"Don't have an account? "}
-                      <button
-                        type="button"
-                        onClick={() => setMode("signup")}
-                        className="text-purple-400 hover:text-purple-300 font-medium transition-colors"
-                      >
-                        Sign up
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      Already have an account?{" "}
-                      <button
-                        type="button"
-                        onClick={() => setMode("login")}
-                        className="text-purple-400 hover:text-purple-300 font-medium transition-colors"
-                      >
-                        Sign in
-                      </button>
-                    </>
-                  )}
-                </p>
-              </form>
-            </div>
-          </div>
+    <div className="relative flex min-h-screen overflow-hidden bg-stage-950">
+      {/* Stage side */}
+      <div className="relative hidden flex-1 items-center justify-center overflow-hidden border-r border-white/[0.06] bg-stage-900/60 p-12 lg:flex">
+        <Spotlight className="-left-40 -top-40" />
+        <div className="pointer-events-none absolute bottom-0 left-1/2 h-48 w-[70%] -translate-x-1/2 rounded-[100%] bg-spot-400/[0.08] blur-3xl" aria-hidden />
+        <div className="relative z-10 w-full max-w-lg">
+          <ScreenplayPage />
+          <p className="mt-12 text-center font-display text-2xl italic text-bone/80">
+            Every great performance starts with <span className="text-gilded">a first read.</span>
+          </p>
         </div>
       </div>
 
-      {/* Right side - Visual */}
-      <div className="hidden lg:flex flex-1 items-center justify-center p-8 relative z-10">
-        <div className="relative max-w-md text-center">
-          {/* Animated rings */}
-          <div className="w-40 h-40 mx-auto mb-8 relative">
-            <div className="absolute inset-0 rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 animate-ping" style={{ animationDuration: '3s' }} />
-            <div className="absolute inset-4 rounded-full bg-gradient-to-br from-purple-500/30 to-blue-500/30 animate-pulse" />
-            <div className="absolute inset-8 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center shadow-2xl shadow-purple-500/40">
-              <svg className="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-              </svg>
+      {/* Form side */}
+      <div className="relative z-10 flex flex-1 items-center justify-center p-6 sm:p-10">
+        <div className="w-full max-w-md">
+          <div className="mb-10">
+            <Link href="/" className="group inline-flex items-center gap-2 text-sm text-bone/50 transition-colors hover:text-bone">
+              <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" /> Back to the foyer
+            </Link>
+          </div>
+
+          <Logo />
+
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={mode}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.25 }}
+              className="mt-10"
+            >
+              <p className="eyebrow">{signup ? "Auditions are open" : "Places, please"}</p>
+              <h1 className="mt-2 font-display text-4xl text-bone">
+                {signup ? <>Join the <span className="italic text-gilded">cast</span></> : <>Welcome <span className="italic text-gilded">back</span></>}
+              </h1>
+              <p className="mt-2 text-bone/50">
+                {signup ? "Create your account and start rehearsing real scenes." : "Sign in to pick up where you left off."}
+              </p>
+            </motion.div>
+          </AnimatePresence>
+
+          {/* Mode switch */}
+          <div className="mt-8 grid grid-cols-2 rounded-full border border-white/[0.08] bg-white/[0.02] p-1" role="tablist">
+            {(["login", "signup"] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                role="tab"
+                aria-selected={mode === m}
+                onClick={() => setMode(m)}
+                className={cn("relative rounded-full py-2.5 text-sm transition-colors", mode === m ? "text-stage-950" : "text-bone/55 hover:text-bone")}
+              >
+                {mode === m && <motion.span layoutId="auth-mode" className="absolute inset-0 rounded-full bg-gradient-to-b from-spot-300 to-spot-500" transition={{ type: "spring", stiffness: 400, damping: 34 }} />}
+                <span className="relative font-medium">{m === "login" ? "Sign in" : "Join the cast"}</span>
+              </button>
+            ))}
+          </div>
+
+          {error && (
+            <div className="mt-6 flex items-center gap-2 rounded-xl border border-velvet-500/30 bg-velvet-600/10 p-3 text-sm text-velvet-200" role="alert">
+              <AlertCircle className="h-4 w-4 shrink-0" /> {error}
             </div>
-          </div>
-          <h2 className="text-2xl font-bold text-white mb-4">
-            Master Your Craft with{" "}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-cyan-400">AI</span>
-          </h2>
-          <p className="text-white/50 mb-8 leading-relaxed">
-            Get real-time feedback on your facial expressions, voice modulation, and body language to become a better performer.
-          </p>
-          <div className="flex flex-wrap gap-3 justify-center">
-            <span className="px-4 py-2 bg-purple-500/10 text-purple-400 rounded-full text-sm font-medium border border-purple-500/20 backdrop-blur-sm">
-              Emotion Analysis
-            </span>
-            <span className="px-4 py-2 bg-cyan-500/10 text-cyan-400 rounded-full text-sm font-medium border border-cyan-500/20 backdrop-blur-sm">
-              Voice Coaching
-            </span>
-            <span className="px-4 py-2 bg-blue-500/10 text-blue-400 rounded-full text-sm font-medium border border-blue-500/20 backdrop-blur-sm">
-              Body Language
-            </span>
-          </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="mt-6 space-y-5">
+            <AnimatePresence initial={false}>
+              {signup && (
+                <motion.div key="name" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+                  <Field id="name" label="Full name" icon={User}>
+                    <input id="name" type="text" placeholder="Your name, as it appears on the playbill" value={name} onChange={(e) => setName(e.target.value)} className={inputClass} required />
+                  </Field>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <Field id="email" label="Email" icon={Mail}>
+              <input id="email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} required autoComplete="email" />
+            </Field>
+
+            <Field id="password" label="Password" icon={Lock}>
+              <input
+                id="password" type={showPassword ? "text" : "password"} placeholder={signup ? "At least 6 characters" : "Your password"}
+                value={password} onChange={(e) => setPassword(e.target.value)} className={inputClass} required
+                autoComplete={signup ? "new-password" : "current-password"}
+              />
+              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-bone/30 transition-colors hover:text-bone/70" aria-label={showPassword ? "Hide password" : "Show password"}>
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </Field>
+
+            <AnimatePresence initial={false}>
+              {signup && (
+                <motion.div key="signup-extra" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="space-y-5 overflow-hidden">
+                  <Field id="confirmPassword" label="Confirm password" icon={Lock}>
+                    <input
+                      id="confirmPassword" type={showConfirmPassword ? "text" : "password"} placeholder="Type it once more"
+                      value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className={inputClass} required autoComplete="new-password"
+                    />
+                    <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-bone/30 transition-colors hover:text-bone/70" aria-label={showConfirmPassword ? "Hide password" : "Show password"}>
+                      {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </Field>
+
+                  <div className="space-y-2">
+                    <p className="text-sm text-bone/70">I&apos;m joining as</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      {([
+                        ["student", GraduationCap, "Actor", "Rehearse and get notes"],
+                        ["teacher", Presentation, "Coach", "Guide your students"],
+                      ] as const).map(([value, Icon, title, sub]) => (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => setRole(value)}
+                          aria-pressed={role === value}
+                          className={cn(
+                            "rounded-xl border p-4 text-left transition-all",
+                            role === value ? "border-spot-400/50 bg-spot-400/10 shadow-[0_0_24px_-8px_rgba(235,185,74,0.5)]" : "border-white/[0.08] bg-white/[0.02] hover:border-white/20",
+                          )}
+                        >
+                          <Icon className={cn("h-5 w-5", role === value ? "text-spot-300" : "text-bone/40")} />
+                          <p className="mt-2 font-medium text-bone">{title}</p>
+                          <p className="text-xs text-bone/45">{sub}</p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <button type="submit" disabled={isLoading} className="btn-spotlight h-12 w-full text-base">
+              {isLoading
+                ? <><Loader2 className="h-4 w-4 animate-spin" /> {signup ? "Creating your account…" : "Signing in…"}</>
+                : signup ? "Create account" : "Sign in"}
+            </button>
+          </form>
         </div>
       </div>
     </div>
@@ -362,7 +285,7 @@ function LoginContent() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#0a0e1a] flex items-center justify-center text-white/50">Loading...</div>}>
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-stage-950 text-bone/50">Loading…</div>}>
       <LoginContent />
     </Suspense>
   )

@@ -115,7 +115,7 @@ export default function CommunityFeedbackPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">Community Feedback</h1>
+          <h1 className="font-display text-4xl text-bone">Community Feedback</h1>
           <p className="text-white/50">Watch performances and share feedback with peers</p>
         </div>
         <div className="flex gap-2">
@@ -123,7 +123,7 @@ export default function CommunityFeedbackPage() {
             <Filter className="w-4 h-4 mr-2" />
             Filter
           </Button>
-          <Button size="sm" className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white rounded-full shadow-lg shadow-purple-500/25">
+          <Button size="sm" className="bg-gradient-to-b from-spot-300 to-spot-500 !text-stage-950 hover:from-spot-200 hover:to-spot-400 text-white rounded-full shadow-lg shadow-spot-500/25">
             <Share2 className="w-4 h-4 mr-2" />
             Share Your Performance
           </Button>
@@ -139,7 +139,7 @@ export default function CommunityFeedbackPage() {
               <div className="flex items-center gap-4">
                 <Avatar className="h-12 w-12 border border-white/10">
                   <AvatarImage src={post.author.avatar || undefined} />
-                  <AvatarFallback className="bg-gradient-to-br from-purple-500/30 to-blue-500/30 text-white">
+                  <AvatarFallback className="bg-gradient-to-br from-spot-400/30 to-spot-600/30 text-white">
                     {post.author.initials}
                   </AvatarFallback>
                 </Avatar>
@@ -158,7 +158,7 @@ export default function CommunityFeedbackPage() {
             </div>
 
             {/* Video Content Placeholder */}
-            <div className="relative aspect-video rounded-2xl overflow-hidden bg-gradient-to-br from-[#0d1120] to-[#1a2333] border border-white/5 mb-6 group-hover:border-purple-500/20 transition-all duration-300">
+            <div className="relative aspect-video rounded-2xl overflow-hidden bg-gradient-to-br from-[#0d1120] to-[#1a2333] border border-white/5 mb-6 group-hover:border-spot-500/20 transition-all duration-300">
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="w-16 h-16 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center cursor-pointer hover:bg-white/20 hover:scale-110 transition-all border border-white/10 shadow-2xl">
                   <Play className="w-7 h-7 text-white fill-white ml-1" />
@@ -167,7 +167,7 @@ export default function CommunityFeedbackPage() {
               
               {/* Overlay Label */}
               <div className="absolute bottom-4 left-4 flex items-center gap-2">
-                <Badge className="bg-purple-500/20 backdrop-blur-md text-purple-400 border border-purple-500/20 px-3 py-1 text-xs">
+                <Badge className="bg-spot-500/20 backdrop-blur-md text-spot-400 border border-spot-500/20 px-3 py-1 text-xs">
                   {post.scene}
                 </Badge>
               </div>
@@ -181,7 +181,7 @@ export default function CommunityFeedbackPage() {
               </button>
               <button 
                 onClick={() => setExpandedPost(expandedPost === post.id ? null : post.id)}
-                className={`flex items-center gap-2 transition-colors ${expandedPost === post.id ? 'text-purple-400' : 'text-white/60 hover:text-white'}`}
+                className={`flex items-center gap-2 transition-colors ${expandedPost === post.id ? 'text-spot-400' : 'text-white/60 hover:text-white'}`}
               >
                 <MessageSquare className="w-5 h-5" />
                 <span className="text-sm font-medium">{post.comments.length} Comments</span>
@@ -212,8 +212,8 @@ export default function CommunityFeedbackPage() {
 
                 {/* Add Comment Field */}
                 <div className="flex gap-4 pt-2">
-                  <Avatar className="w-8 h-8 border border-white/10 shadow-lg shadow-purple-500/20">
-                    <AvatarFallback className="text-[10px] bg-gradient-to-br from-purple-500 to-blue-500 text-white">
+                  <Avatar className="w-8 h-8 border border-white/10 shadow-lg shadow-spot-500/20">
+                    <AvatarFallback className="text-[10px] bg-gradient-to-br from-spot-300 to-spot-600 text-white">
                       MT
                     </AvatarFallback>
                   </Avatar>
@@ -222,13 +222,13 @@ export default function CommunityFeedbackPage() {
                       placeholder="Write constructive feedback..."
                       value={newComment}
                       onChange={(e) => setNewComment(e.target.value)}
-                      className="min-h-[44px] max-h-32 bg-white/5 border-white/10 text-white placeholder:text-white/20 rounded-2xl focus:border-purple-500/50 focus:ring-purple-500/20 transition-all pr-12"
+                      className="min-h-[44px] max-h-32 bg-white/5 border-white/10 text-white placeholder:text-white/20 rounded-2xl focus:border-spot-500/50 focus:ring-spot-500/20 transition-all pr-12"
                       rows={1}
                     />
                     <Button 
                       size="icon" 
                       disabled={!newComment.trim()}
-                      className="absolute right-1 bottom-1 h-8 w-8 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-50 disabled:bg-white/10"
+                      className="absolute right-1 bottom-1 h-8 w-8 rounded-xl bg-spot-600 hover:bg-spot-500 disabled:opacity-50 disabled:bg-white/10"
                     >
                       <Send className="w-4 h-4" />
                     </Button>

@@ -1,7 +1,7 @@
 "use client"
 
-import { useRef, useState } from "react"
-import { Mic, MicOff, Loader2, CheckCircle, AlertTriangle, Waves } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
+import { Mic, MicOff, Loader2, CheckCircle, AlertTriangle, Waves, UserCheck } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { analyzeVoice, useVoiceRecorder } from "@/lib/use-voice-recorder"
 import { countWords, type Baseline } from "@/lib/performance-scoring"
@@ -9,13 +9,32 @@ import { countWords, type Baseline } from "@/lib/performance-scoring"
 const CALIBRATION_SENTENCE =
   "I'm reading this sentence in my normal speaking voice, calm and relaxed, before I start my scene."
 
+// The voice profile is kept in this browser, so actors calibrate once rather than every scene
+const PROFILE_KEY = "actorpro-voice-profile"
+
+interface SavedProfile { baseline: Baseline; savedAt: string }
+
+function loadProfile(): SavedProfile | null {
+  try {
+    const raw = localStorage.getItem(PROFILE_KEY)
+    const parsed = raw ? JSON.parse(raw) : null
+    return parsed?.baseline?.prosody ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+function saveProfile(baseline: Baseline) {
+  try { localStorage.setItem(PROFILE_KEY, JSON.stringify({ baseline, savedAt: new Date().toISOString() })) } catch {}
+}
+
 export function MicLevel({ level }: Readonly<{ level: number }>) {
   return (
     <div className="flex items-end gap-1 h-6" aria-label="Microphone level">
       {Array.from({ length: 12 }, (_, i) => (
         <div
           key={i}
-          className={`w-1.5 rounded-full transition-all duration-75 ${level * 12 > i ? (i > 9 ? "bg-red-400" : "bg-purple-400") : "bg-white/10"}`}
+          className={`w-1.5 rounded-full transition-all duration-75 ${level * 12 > i ? (i > 9 ? "bg-red-400" : "bg-spot-400") : "bg-white/10"}`}
           style={{ height: `${30 + i * 6}%` }}
         />
       ))}
@@ -34,7 +53,10 @@ export function Calibration({ voiceAvailable, onDone }: Readonly<{
   const [status, setStatus] = useState<"idle" | "recording" | "analyzing" | "done" | "error">("idle")
   const [error, setError] = useState<string | null>(null)
   const [baseline, setBaseline] = useState<Baseline | null>(null)
+  const [saved, setSaved] = useState<SavedProfile | null>(null)
   const finishingRef = useRef(false)
+
+  useEffect(() => { setSaved(loadProfile()) }, [])
 
   const finish = async () => {
     if (finishingRef.current) return // auto-stop and the Done button can fire together
@@ -44,7 +66,9 @@ export function Calibration({ voiceAvailable, onDone }: Readonly<{
     setStatus("analyzing")
     try {
       const { prosody } = await analyzeVoice(wav)
-      setBaseline({ prosody, wordsPerSec: countWords(CALIBRATION_SENTENCE) / Math.max(0.5, prosody.speechSec) })
+      const measured = { prosody, wordsPerSec: countWords(CALIBRATION_SENTENCE) / Math.max(0.5, prosody.speechSec) }
+      setBaseline(measured)
+      saveProfile(measured)
       setStatus("done")
     } catch (err: any) {
       setError(err.message)
@@ -65,16 +89,46 @@ export function Calibration({ voiceAvailable, onDone }: Readonly<{
     }
   }
 
+  // Already calibrated in this browser: offer to reuse it
+  if (saved && status === "idle" && voiceAvailable !== false) {
+    const when = new Date(saved.savedAt).toLocaleDateString(undefined, { day: "numeric", month: "short" })
+    return (
+      <div className="max-w-xl mx-auto p-6 rounded-2xl panel space-y-5">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center">
+            <UserCheck className="w-5 h-5 text-emerald-300" />
+          </div>
+          <div>
+            <p className="eyebrow">Voice profile ready</p>
+            <h2 className="font-display text-2xl text-bone">We know your normal voice</h2>
+          </div>
+        </div>
+        <p className="text-sm text-white/60">
+          Calibrated on {when}: natural pitch around <b className="text-bone">{saved.baseline.prosody.pitchMedianHz ? Math.round(saved.baseline.prosody.pitchMedianHz) : "–"} Hz</b>,
+          pace about <b className="text-bone">{Math.round(saved.baseline.wordsPerSec * 60)} words per minute</b>. Recalibrate if you&apos;ve changed microphone or room.
+        </p>
+        <div className="flex gap-2">
+          <Button onClick={() => onDone(saved.baseline)} className="flex-1 bg-gradient-to-b from-spot-300 to-spot-500 !text-stage-950 rounded-xl">
+            Start the scene
+          </Button>
+          <Button onClick={() => setSaved(null)} variant="ghost" className="text-white/60 hover:text-white hover:bg-white/10">
+            Recalibrate
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   if (voiceAvailable === false) {
     return (
       <div className="max-w-xl mx-auto p-6 rounded-2xl bg-yellow-500/5 border border-yellow-500/20 space-y-4 text-center">
         <AlertTriangle className="w-8 h-8 text-yellow-300 mx-auto" />
-        <h2 className="text-xl font-semibold text-white">Voice analysis is offline</h2>
+        <h2 className="font-display text-2xl text-bone">Voice analysis is offline</h2>
         <p className="text-sm text-white/60">
           The voice analysis service isn't running, so this session will only check your line accuracy.
           Start it with <code className="px-1.5 py-0.5 rounded bg-black/40 text-white/80">npm run voice</code> to get full feedback.
         </p>
-        <Button onClick={() => onDone(null)} className="bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl">
+        <Button onClick={() => onDone(null)} className="bg-gradient-to-b from-spot-300 to-spot-500 !text-stage-950 text-white rounded-xl">
           Continue without voice analysis
         </Button>
       </div>
@@ -84,12 +138,12 @@ export function Calibration({ voiceAvailable, onDone }: Readonly<{
   return (
     <div className="max-w-xl mx-auto p-6 rounded-2xl bg-white/5 border border-white/10 space-y-5">
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-full bg-purple-500/15 border border-purple-500/30 flex items-center justify-center">
-          <Waves className="w-5 h-5 text-purple-300" />
+        <div className="w-10 h-10 rounded-full bg-spot-500/15 border border-spot-500/30 flex items-center justify-center">
+          <Waves className="w-5 h-5 text-spot-300" />
         </div>
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-purple-400/70">Step 1 · 10 seconds</p>
-          <h2 className="text-lg font-semibold text-white">Let us hear your normal voice</h2>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-spot-400/70">Step 1 · 10 seconds</p>
+          <h2 className="font-display text-2xl text-bone">Let us hear your normal voice</h2>
         </div>
       </div>
 
@@ -112,7 +166,7 @@ export function Calibration({ voiceAvailable, onDone }: Readonly<{
             </p>
           </div>
           <div className="flex gap-2">
-            <Button onClick={() => onDone(baseline)} className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl">
+            <Button onClick={() => onDone(baseline)} className="flex-1 bg-gradient-to-b from-spot-300 to-spot-500 !text-stage-950 text-white rounded-xl">
               Start the scene
             </Button>
             <Button onClick={() => { setBaseline(null); setStatus("idle") }} variant="ghost" className="text-white/60 hover:text-white hover:bg-white/10">
@@ -138,7 +192,7 @@ export function Calibration({ voiceAvailable, onDone }: Readonly<{
             disabled={status === "analyzing"}
             size="lg"
             className={`w-full rounded-xl gap-2 text-white ${
-              status === "recording" ? "bg-red-500 hover:bg-red-400" : "bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500"
+              status === "recording" ? "bg-red-500 hover:bg-red-400" : "bg-gradient-to-b from-spot-300 to-spot-500 !text-stage-950 hover:from-spot-200 hover:to-spot-400"
             }`}
           >
             {status === "analyzing" && <><Loader2 className="w-4 h-4 animate-spin" /> Measuring your voice…</>}
@@ -146,7 +200,7 @@ export function Calibration({ voiceAvailable, onDone }: Readonly<{
             {(status === "idle" || status === "error") && <><Mic className="w-4 h-4" /> {status === "error" ? "Try again" : "Read the sentence"}</>}
           </Button>
           <button onClick={() => onDone(null)} className="w-full text-xs text-white/35 hover:text-white/60">
-            Skip (voice pattern won't be scored)
+            Skip (voice pattern will be estimated from your takes)
           </button>
         </div>
       )}

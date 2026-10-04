@@ -9,20 +9,19 @@ export default function DashboardLayout({
 }) {
   return (
     <AuthGuard>
-      <div className="min-h-screen bg-[#0a0e1a] relative">
-        {/* Background gradient effects */}
-        <div className="fixed inset-0 pointer-events-none">
-          <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-purple-600/10 rounded-full blur-[150px]" />
-          <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-blue-600/10 rounded-full blur-[150px]" />
+      <div className="relative min-h-screen bg-stage-950">
+        {/* stage lighting: a gold key light and a velvet fill */}
+        <div className="pointer-events-none fixed inset-0" aria-hidden>
+          <div className="absolute -top-40 right-[10%] h-[700px] w-[700px] rounded-full bg-spot-400/[0.05] blur-[160px]" />
+          <div className="absolute -bottom-40 left-[15%] h-[500px] w-[500px] rounded-full bg-velvet-700/[0.08] blur-[160px]" />
         </div>
-        
+
         <DashboardSidebar />
-        <div className="lg:pl-64 relative z-10">
+        <div className="relative z-10 lg:pl-64">
           <DashboardHeader />
-          <main className="p-6">{children}</main>
+          <main className="px-6 py-8 lg:px-10">{children}</main>
         </div>
       </div>
     </AuthGuard>
   )
 }
-

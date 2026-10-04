@@ -2,60 +2,37 @@
 @tailwind components;
 @tailwind utilities;
 
+/* "Backstage & Spotlight" — a dark stage lit in spotlight gold, with velvet crimson accents.
+   The app is dark-only, so :root and .dark share one palette. */
 @layer base {
-  :root {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --chart-1: 221.2 83.2% 53.3%;
-    --chart-2: 212 95% 68%;
-    --chart-3: 263.4 70% 50.4%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 160 60% 45%;
-    --radius: 0.5rem;
-  }
-
+  :root,
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --chart-1: 221.2 83.2% 53.3%;
-    --chart-2: 212 95% 68%;
-    --chart-3: 263.4 70% 50.4%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 160 60% 45%;
+    --background: 260 25% 3%;          /* stage-950 */
+    --foreground: 39 38% 93%;          /* bone */
+    --card: 265 22% 7%;
+    --card-foreground: 39 38% 93%;
+    --popover: 268 20% 8%;
+    --popover-foreground: 39 38% 93%;
+    --primary: 41 80% 61%;             /* spot-400 */
+    --primary-foreground: 260 25% 4%;
+    --secondary: 270 19% 14%;
+    --secondary-foreground: 39 38% 93%;
+    --muted: 270 19% 12%;
+    --muted-foreground: 35 10% 62%;
+    --accent: 270 19% 14%;
+    --accent-foreground: 39 38% 93%;
+    --destructive: 348 63% 44%;        /* velvet-600 */
+    --destructive-foreground: 39 38% 93%;
+    --border: 270 15% 16%;
+    --input: 270 15% 18%;
+    --ring: 41 80% 61%;
+    --chart-1: 41 80% 61%;             /* gold */
+    --chart-2: 348 63% 55%;            /* velvet */
+    --chart-3: 213 76% 56%;
+    --chart-4: 160 60% 40%;
+    --chart-5: 35 10% 62%;
+    --radius: 0.75rem;
+    color-scheme: dark;
   }
 }
 
@@ -65,5 +42,85 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+  /* Playfair's default old-style figures sit unevenly in scores and stats */
+  .font-display {
+    font-variant-numeric: lining-nums;
+  }
+  ::selection {
+    background: rgba(235, 185, 74, 0.35);
+    color: #fdf8ec;
+  }
+}
+
+@layer components {
+  /* Primary call to action: a lit, gold "spotlight" button */
+  .btn-spotlight {
+    @apply relative inline-flex items-center justify-center gap-2 rounded-full font-semibold text-stage-950
+      bg-gradient-to-b from-spot-300 to-spot-500
+      shadow-[0_0_0_1px_rgba(241,205,114,0.4),0_10px_30px_-10px_rgba(235,185,74,0.6)]
+      transition-all duration-300
+      hover:from-spot-200 hover:to-spot-400 hover:shadow-[0_0_0_1px_rgba(241,205,114,0.6),0_14px_40px_-10px_rgba(235,185,74,0.8)]
+      active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none;
+  }
+  /* Secondary: velvet, used for recording and dramatic emphasis */
+  .btn-velvet {
+    @apply relative inline-flex items-center justify-center gap-2 rounded-full font-semibold text-bone
+      bg-gradient-to-b from-velvet-500 to-velvet-700
+      shadow-[0_0_0_1px_rgba(212,67,95,0.45),0_10px_30px_-12px_rgba(184,42,71,0.8)]
+      transition-all duration-300 hover:from-velvet-400 hover:to-velvet-600
+      active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none;
+  }
+  /* Surfaces */
+  .panel {
+    @apply rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.045] to-white/[0.015] backdrop-blur-xl;
+  }
+  .panel-hover {
+    @apply transition-all duration-300 hover:border-spot-400/25 hover:from-white/[0.06];
+  }
+  /* Small uppercase label used across the app (like a playbill) */
+  .eyebrow {
+    @apply text-[11px] font-semibold uppercase tracking-[0.22em] text-spot-300/80;
+  }
+  /* Gold text for headline highlights */
+  .text-gilded {
+    @apply bg-clip-text text-transparent bg-gradient-to-b from-spot-100 via-spot-300 to-spot-600;
+  }
+}
+
+/* Film grain over the whole app — a subtle cinematic texture */
+.film-grain {
+  pointer-events: none;
+  position: fixed;
+  inset: -50%;
+  z-index: 60;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation: grain 1.2s steps(6) infinite;
+}
+@keyframes grain {
+  0%   { transform: translate(0, 0); }
+  20%  { transform: translate(-3%, 2%); }
+  40%  { transform: translate(2%, -3%); }
+  60%  { transform: translate(-2%, 3%); }
+  80%  { transform: translate(3%, -1%); }
+  100% { transform: translate(0, 0); }
+}
+
+/* Lenis smooth scrolling */
+html.lenis, html.lenis body { height: auto; }
+.lenis.lenis-smooth { scroll-behavior: auto !important; }
+.lenis.lenis-smooth [data-lenis-prevent] { overscroll-behavior: contain; }
+.lenis.lenis-stopped { overflow: hidden; }
+
+/* Thin, themed scrollbars */
+* { scrollbar-width: thin; scrollbar-color: #2e2737 transparent; }
+
+@media (prefers-reduced-motion: reduce) {
+  .film-grain { animation: none; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

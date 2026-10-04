@@ -31,18 +31,31 @@ export function ScoreRing({ score, size = 72 }: Readonly<{ score: number; size?:
   )
 }
 
-function ComponentBar({ label, value, hint }: Readonly<{ label: string; value: number | null; hint: string }>) {
+function ComponentBar({ label, value, hint, tag, missing }: Readonly<{
+  label:    string
+  value:    number | null
+  hint:     string
+  tag?:     string   // e.g. "estimated"
+  missing?: string   // shown instead of an empty bar when there's no score
+}>) {
   return (
     <div title={hint}>
       <div className="flex justify-between text-[11px] mb-1">
-        <span className="text-white/50">{label}</span>
+        <span className="text-white/50">
+          {label}
+          {tag && <span className="ml-1.5 rounded bg-white/10 px-1 py-px text-[9px] uppercase tracking-wider text-white/45">{tag}</span>}
+        </span>
         <span className="text-white/80 tabular-nums">{value ?? "–"}</span>
       </div>
-      <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
-        {value != null && (
-          <div className={`h-full rounded-full transition-all duration-700 ${scoreBand(value).bar}`} style={{ width: `${Math.max(value, 2)}%` }} />
-        )}
-      </div>
+      {value == null && missing ? (
+        <p className="text-[11px] text-spot-200/70">{missing}</p>
+      ) : (
+        <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
+          {value != null && (
+            <div className={`h-full rounded-full transition-all duration-700 ${scoreBand(value).bar}`} style={{ width: `${Math.max(value, 2)}%` }} />
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -58,7 +71,7 @@ export function LineResultCard({ status, result, error, onRetry }: Readonly<{
   if (status === "analyzing") {
     return (
       <div className="p-4 rounded-xl bg-black/30 border border-white/10 flex items-center gap-3">
-        <Loader2 className="w-5 h-5 text-purple-400 animate-spin" />
+        <Loader2 className="w-5 h-5 text-spot-400 animate-spin" />
         <div>
           <p className="text-sm text-white/80">Analysing your delivery…</p>
           <p className="text-xs text-white/40">Listening for emotion, pitch, volume and pace</p>
@@ -78,7 +91,13 @@ export function LineResultCard({ status, result, error, onRetry }: Readonly<{
         <div className="flex-1 min-w-0 space-y-2">
           <p className={`text-sm font-semibold ${band.text}`}>{band.label}</p>
           <ComponentBar label="Emotion match" value={result.emotion} hint="Did your voice carry the target emotion? (50%)" />
-          <ComponentBar label="Voice pattern" value={result.voice}   hint="Did your pitch, volume and pace change the way the emotion needs? (30%)" />
+          <ComponentBar
+            label="Voice pattern"
+            value={result.voice}
+            hint="Did your pitch, volume and pace change the way the emotion needs? (30%)"
+            tag={result.voiceEstimated ? "estimated" : undefined}
+            missing={result.prosody ? "Needs your normal voice to compare with: calibrate, or it starts from your next line." : undefined}
+          />
           <ComponentBar label="Line accuracy" value={result.accuracy} hint="Did you say the right words? (20%)" />
         </div>
       </div>

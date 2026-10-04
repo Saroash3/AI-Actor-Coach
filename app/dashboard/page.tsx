@@ -1,256 +1,174 @@
 "use client"
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Button } from "@/components/ui/button"
-import { Progress } from "@/components/ui/progress"
-import { Video, Target, Smile, ClipboardCheck, Play, ChevronRight, Mic, BookOpen } from "lucide-react"
+import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
+import { Bar, BarChart, CartesianGrid, LabelList, XAxis, YAxis } from "recharts"
+import { ArrowRight, Clapperboard, Film, Flame, Layers, Sparkles, Wind } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
-import { getUserInitials } from "@/lib/auth"
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart"
+import { Skeleton } from "@/components/ui/skeleton"
+import { NumberTicker } from "@/components/magic/number-ticker"
+import { Stagger, StaggerItem } from "@/components/magic/reveal"
+import { BorderBeam } from "@/components/magic/border-beam"
+import { FilmPoster, type PosterScript } from "@/components/scripts/film-poster"
 
-const stats = [
-  { 
-    label: "Monologues", 
-    value: "12",
-    subtext: "Sessions",
-    icon: Mic,
-    gradient: "from-purple-500/20 to-violet-500/20",
-    iconColor: "text-purple-400",
-    borderColor: "border-purple-500/20"
-  },
-  { 
-    label: "Analysis", 
-    value: "8",
-    subtext: "Reports",
-    icon: Target,
-    gradient: "from-cyan-500/20 to-blue-500/20",
-    iconColor: "text-cyan-400",
-    borderColor: "border-cyan-500/20"
-  },
-  { 
-    label: "Emotion Accuracy", 
-    value: "82%", 
-    subtext: "+8% this week",
-    icon: Smile,
-    gradient: "from-emerald-500/20 to-green-500/20",
-    iconColor: "text-emerald-400",
-    borderColor: "border-emerald-500/20"
-  },
-  { 
-    label: "Assignments", 
-    value: "8/12", 
-    subtext: "Completed",
-    icon: ClipboardCheck,
-    gradient: "from-orange-500/20 to-amber-500/20",
-    iconColor: "text-orange-400",
-    borderColor: "border-orange-500/20"
-  },
+interface LibraryItem { _id: string; title: string; genre: string; difficulty: string; scenes: number }
+
+// A rotating vocal warm-up, a different one each day
+const WARM_UPS = [
+  { title: "Lip trills",       icon: Wind,  steps: "Blow air through closed, relaxed lips so they buzz. Slide from your lowest note to your highest and back, five times." },
+  { title: "Sirens",           icon: Wind,  steps: "On an 'ng' sound, glide smoothly from low to high like a siren. It stretches your pitch range before emotional scenes." },
+  { title: "Tongue twisters",  icon: Flame, steps: "“Red leather, yellow leather” ten times, getting faster but staying crisp. Clear consonants carry the emotion." },
+  { title: "Breath counting",  icon: Wind,  steps: "Breathe in for 4, then count out loud to 10 on one breath without straining. Add two numbers each day." },
+  { title: "Emotion ladder",   icon: Flame, steps: "Say “I can’t believe you did that” five times: amused, surprised, hurt, angry, furious. Notice what your voice does." },
 ]
 
-const recentSessions = [
-  { title: "Monologue1", date: "Yesterday", score: "12min" },
-  { title: "Analysis", date: "2 days ago", score: "85%" },
-]
+const chartConfig = { films: { label: "Films", color: "#ebb94a" } } satisfies ChartConfig
 
-const recommendedExercises = [
-  { title: "Scene", icon: BookOpen },
-  { title: "Recordings", icon: Video },
-]
-
-const emotionalRangeData = [
-  { emotion: "Happiness", value: 85, color: "from-yellow-400 to-orange-400" },
-  { emotion: "Sadness", value: 72, color: "from-blue-400 to-indigo-400" },
-  { emotion: "Anger", value: 68, color: "from-red-400 to-rose-400" },
-  { emotion: "Fear", value: 54, color: "from-purple-400 to-violet-400" },
-]
+function greeting() {
+  const h = new Date().getHours()
+  if (h < 12) return "Good morning"
+  if (h < 18) return "Good afternoon"
+  return "Good evening"
+}
 
 export default function DashboardPage() {
   const { user } = useAuth()
-  const displayName = user?.name || "User"
-  const initials = user ? getUserInitials(user.name) : "?"
+  const [library, setLibrary] = useState<LibraryItem[] | null>(null)
+
+  useEffect(() => {
+    fetch("/api/library-scripts")
+      .then((r) => r.json())
+      .then((d) => setLibrary(d.scripts ?? []))
+      .catch(() => setLibrary([]))
+  }, [])
+
+  const stats = useMemo(() => {
+    const items = library ?? []
+    const byGenre = new Map<string, number>()
+    for (const s of items) byGenre.set(s.genre, (byGenre.get(s.genre) ?? 0) + 1)
+    return {
+      films:     items.length,
+      scenes:    items.reduce((n, s) => n + s.scenes, 0),
+      beginner:  items.filter((s) => s.difficulty === "Beginner").length,
+      genres:    byGenre.size,
+      genreData: [...byGenre.entries()].map(([genre, films]) => ({ genre, films })).sort((a, b) => b.films - a.films),
+    }
+  }, [library])
+
+  // One pick per difficulty, so there's always a place to start
+  const picks: PosterScript[] = useMemo(() => {
+    const items = library ?? []
+    const day = new Date().getDate()
+    return ["Beginner", "Intermediate", "Advanced"].flatMap((level) => {
+      const pool = items.filter((s) => s.difficulty === level)
+      const s = pool[day % Math.max(1, pool.length)]
+      return s ? [{ id: s._id, title: s.title, genre: s.genre, difficulty: s.difficulty, scenes: s.scenes }] : []
+    })
+  }, [library])
+
+  const warmUp = WARM_UPS[new Date().getDate() % WARM_UPS.length]
+  const firstName = user?.name?.split(" ")[0] ?? "Actor"
 
   return (
-    <div className="space-y-6">
-      {/* Welcome Section */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <Avatar className="h-14 w-14 border-2 border-purple-500/30 shadow-lg shadow-purple-500/20">
-            <AvatarImage src="/placeholder-avatar.jpg" alt="User" />
-            <AvatarFallback className="bg-gradient-to-br from-purple-500 to-blue-500 text-white text-lg font-bold">{initials}</AvatarFallback>
-          </Avatar>
+    <div className="mx-auto max-w-7xl space-y-8">
+      {/* Greeting */}
+      <section className="panel relative overflow-hidden p-8 md:p-10">
+        <BorderBeam duration={10} />
+        <div className="pointer-events-none absolute -right-20 -top-20 h-80 w-80 rounded-full bg-spot-400/10 blur-3xl" aria-hidden />
+        <div className="relative flex flex-col gap-8 md:flex-row md:items-end md:justify-between">
           <div>
-            <p className="text-sm text-white/50">Welcome,</p>
-            <h1 className="text-2xl font-bold text-white">{displayName}</h1>
+            <p className="eyebrow">Backstage</p>
+            <h1 className="mt-3 font-display text-4xl text-bone md:text-5xl">
+              {greeting()}, <span className="italic text-gilded">{firstName}.</span>
+            </h1>
+            <p className="mt-3 max-w-xl text-bone/55">
+              The house is dark and the stage is yours. Pick a scene, warm up your voice, and let&apos;s hear what you&apos;ve got.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <Link href="/dashboard/scripts" className="btn-spotlight group px-6 py-3">
+              <Clapperboard className="h-4 w-4" /> Choose a scene
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+            </Link>
+            <Link href="/dashboard/scripts?tab=my-scripts" className="inline-flex items-center gap-2 rounded-full border border-white/10 px-6 py-3 text-sm text-bone/80 transition-colors hover:border-white/25 hover:text-bone">
+              My scripts
+            </Link>
           </div>
         </div>
-        <Button asChild className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white rounded-full shadow-lg shadow-purple-500/25">
-          <Link href="/dashboard/practice">
-            <Play className="w-4 h-4 mr-2" />
-            Start Practice
-          </Link>
-        </Button>
-      </div>
+      </section>
 
-      {/* Main Grid */}
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* Left Column - Recent Sessions & Recommended */}
-        <div className="lg:col-span-1 space-y-6">
-          {/* Recent Sessions */}
-          <div className="p-6 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10">
-            <h3 className="text-base font-semibold text-white mb-4">Recent Sessions</h3>
-            <div className="space-y-3">
-              {recentSessions.map((session, index) => (
-                <Link
-                  key={index}
-                  href="/dashboard/analysis"
-                  className="flex items-center justify-between p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-purple-500/20 transition-all group"
-                >
-                  <div>
-                    <p className="font-medium text-white">{session.title}</p>
-                    <p className="text-xs text-white/40">{session.date}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-white/50">{session.score}</span>
-                    <ChevronRight className="w-4 h-4 text-white/20 group-hover:text-purple-400 transition-colors" />
-                  </div>
-                </Link>
-              ))}
+      {/* Library stats */}
+      <Stagger className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {[
+          { label: "Screenplays",           value: stats.films,    icon: Film },
+          { label: "Scenes to rehearse",    value: stats.scenes,   icon: Layers },
+          { label: "Beginner-friendly films", value: stats.beginner, icon: Sparkles },
+          { label: "Genres",                value: stats.genres,   icon: Clapperboard },
+        ].map(({ label, value, icon: Icon }) => (
+          <StaggerItem key={label} className="panel panel-hover p-5">
+            <div className="flex items-center justify-between">
+              <p className="text-xs uppercase tracking-wider text-bone/45">{label}</p>
+              <Icon className="h-4 w-4 text-spot-300/70" />
             </div>
-          </div>
+            {library === null
+              ? <Skeleton className="mt-3 h-9 w-20 bg-white/5" />
+              : <NumberTicker value={value} className="mt-2 block font-display text-4xl text-bone" />}
+          </StaggerItem>
+        ))}
+      </Stagger>
 
-          {/* Progress Tracker Mini */}
-          <div className="p-6 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10">
-            <h3 className="text-base font-semibold text-white mb-4">Progress Tracker</h3>
-            <div className="space-y-4">
-              {emotionalRangeData.map((item, index) => (
-                <div key={index}>
-                  <div className="flex justify-between text-sm mb-2">
-                    <span className="text-white/50">{item.emotion}</span>
-                    <span className="text-white font-medium">{item.value}%</span>
-                  </div>
-                  <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-                    <div 
-                      className={`h-full bg-gradient-to-r ${item.color} rounded-full transition-all duration-500`}
-                      style={{ width: `${item.value}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
+      <div className="grid gap-6 lg:grid-cols-5">
+        {/* Tonight's picks */}
+        <section className="lg:col-span-3">
+          <div className="mb-4 flex items-end justify-between">
+            <div>
+              <p className="eyebrow">Tonight&apos;s picks</p>
+              <h2 className="mt-1 font-display text-2xl text-bone">One scene for every level</h2>
             </div>
+            <Link href="/dashboard/scripts" className="text-sm text-spot-300/80 hover:text-spot-200">Full library →</Link>
           </div>
-
-          {/* Recommended Exercises */}
-          <div className="p-6 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10">
-            <h3 className="text-base font-semibold text-white mb-4">Recommended Exercises</h3>
-            <div className="space-y-3">
-              {recommendedExercises.map((exercise, index) => (
-                <Link
-                  key={index}
-                  href="/dashboard/scripts"
-                  className="flex items-center justify-between p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-purple-500/20 transition-all group"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500/20 to-blue-500/20 border border-purple-500/20 flex items-center justify-center">
-                      <exercise.icon className="w-5 h-5 text-purple-400" />
-                    </div>
-                    <span className="font-medium text-white">{exercise.title}</span>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-white/20 group-hover:text-purple-400 transition-colors" />
-                </Link>
-              ))}
-            </div>
+          <div className="grid grid-cols-3 gap-4">
+            {library === null
+              ? Array.from({ length: 3 }, (_, i) => <Skeleton key={i} className="aspect-[2/3] rounded-2xl bg-white/5" />)
+              : picks.map((p) => <FilmPoster key={p.id} script={p} />)}
           </div>
+        </section>
 
-          {/* My Library */}
-          <div className="p-6 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10">
-            <h3 className="text-base font-semibold text-white mb-4">My Library</h3>
-            <p className="text-sm text-white/50 mb-4">12 scripts saved</p>
-            <Button variant="outline" className="w-full rounded-full border-white/10 text-white hover:bg-white/5" asChild>
-              <Link href="/dashboard/scripts">View All</Link>
-            </Button>
-          </div>
-        </div>
-
-        {/* Right Column - Stats & Charts */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Stats Grid */}
-          <div className="grid grid-cols-2 gap-4">
-            {stats.map((stat) => (
-              <div 
-                key={stat.label} 
-                className={`p-5 rounded-2xl bg-white/5 backdrop-blur-xl border ${stat.borderColor} hover:bg-white/[0.07] transition-all group`}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <p className="text-xs text-white/50 uppercase tracking-wide">{stat.label}</p>
-                    <p className="text-2xl font-bold text-white">{stat.value}</p>
-                    <p className="text-xs text-white/40">{stat.subtext}</p>
-                  </div>
-                  <div className={`p-3 rounded-xl bg-gradient-to-br ${stat.gradient} border border-white/5 group-hover:scale-110 transition-transform`}>
-                    <stat.icon className={`w-5 h-5 ${stat.iconColor}`} />
-                  </div>
-                </div>
+        <div className="space-y-6 lg:col-span-2">
+          {/* Warm-up of the day */}
+          <section className="panel relative overflow-hidden p-6">
+            <div className="pointer-events-none absolute -bottom-10 -right-10 h-40 w-40 rounded-full bg-velvet-600/15 blur-2xl" aria-hidden />
+            <p className="eyebrow text-velvet-300/80">Warm-up of the day</p>
+            <div className="mt-3 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-velvet-400/25 bg-velvet-500/10 text-velvet-300">
+                <warmUp.icon className="h-5 w-5" />
               </div>
-            ))}
-          </div>
-
-          {/* Emotional Range Chart */}
-          <div className="p-6 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10">
-            <h3 className="text-base font-semibold text-white mb-6">Emotional Range</h3>
-            <div className="h-48 flex items-end justify-around gap-4">
-              {emotionalRangeData.map((item, index) => (
-                <div key={index} className="flex flex-col items-center gap-2 flex-1">
-                  <div className="w-full bg-white/5 rounded-t-lg relative" style={{ height: '160px' }}>
-                    <div 
-                      className={`absolute bottom-0 w-full bg-gradient-to-t ${item.color} rounded-t-lg transition-all duration-700 shadow-lg`}
-                      style={{ 
-                        height: `${item.value}%`,
-                        boxShadow: `0 0 20px 0 rgba(147, 51, 234, 0.2)`
-                      }}
-                    />
-                  </div>
-                  <span className="text-xs text-white/40 text-center">{item.emotion}</span>
-                </div>
-              ))}
+              <h3 className="font-display text-xl text-bone">{warmUp.title}</h3>
             </div>
-          </div>
+            <p className="mt-3 text-sm leading-relaxed text-bone/60">{warmUp.steps}</p>
+          </section>
 
-          {/* Quick Actions */}
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div className="p-5 rounded-2xl bg-gradient-to-br from-purple-500/10 to-violet-500/10 backdrop-blur-xl border border-purple-500/20 hover:border-purple-500/40 transition-all group">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-violet-500 flex items-center justify-center shadow-lg shadow-purple-500/30 group-hover:shadow-purple-500/50 transition-all">
-                  <Video className="w-6 h-6 text-white" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-white">Start Practice</h3>
-                  <p className="text-sm text-white/50">Record a new session</p>
-                </div>
-                <Button size="sm" className="rounded-full bg-gradient-to-r from-purple-600 to-violet-600 text-white shadow-lg shadow-purple-500/25" asChild>
-                  <Link href="/dashboard/practice">
-                    <Play className="w-4 h-4" />
-                  </Link>
-                </Button>
-              </div>
-            </div>
-
-            <div className="p-5 rounded-2xl bg-gradient-to-br from-cyan-500/10 to-blue-500/10 backdrop-blur-xl border border-cyan-500/20 hover:border-cyan-500/40 transition-all group">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center shadow-lg shadow-cyan-500/30 group-hover:shadow-cyan-500/50 transition-all">
-                  <Target className="w-6 h-6 text-white" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-white">View Analysis</h3>
-                  <p className="text-sm text-white/50">Check your progress</p>
-                </div>
-                <Button size="sm" variant="outline" className="rounded-full border-white/10 text-white hover:bg-white/5" asChild>
-                  <Link href="/dashboard/analysis">
-                    <ChevronRight className="w-4 h-4" />
-                  </Link>
-                </Button>
-              </div>
-            </div>
-          </div>
+          {/* Library by genre (shadcn chart) */}
+          <section className="panel p-6">
+            <p className="eyebrow">The library at a glance</p>
+            <h3 className="mt-1 font-display text-xl text-bone">Films by genre</h3>
+            {library === null ? (
+              <Skeleton className="mt-4 h-56 w-full bg-white/5" />
+            ) : (
+              <ChartContainer config={chartConfig} className="mt-4 aspect-auto h-64 w-full">
+                <BarChart data={stats.genreData} layout="vertical" margin={{ left: 4, right: 28, top: 0, bottom: 0 }}>
+                  <CartesianGrid horizontal={false} stroke="rgba(255,255,255,0.06)" />
+                  <YAxis dataKey="genre" type="category" tickLine={false} axisLine={false} width={64} tick={{ fill: "rgba(244,239,230,0.55)", fontSize: 12 }} />
+                  <XAxis type="number" hide allowDecimals={false} domain={[0, "dataMax"]} />
+                  <ChartTooltip cursor={{ fill: "rgba(255,255,255,0.04)" }} content={<ChartTooltipContent hideLabel={false} />} />
+                  <Bar dataKey="films" fill="var(--color-films)" radius={[0, 4, 4, 0]} barSize={14} isAnimationActive={false}>
+                    <LabelList dataKey="films" position="right" className="fill-bone/70" fontSize={12} />
+                  </Bar>
+                </BarChart>
+              </ChartContainer>
+            )}
+          </section>
         </div>
       </div>
     </div>

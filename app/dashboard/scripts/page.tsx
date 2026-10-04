@@ -1,3 +1,4 @@
+import { Suspense } from "react"
 import ScriptLibraryClient from "./client-page"
 import { preloadedScripts } from "@/lib/preloaded-scripts"
 import dbConnect from "@/lib/mongodb"
@@ -31,5 +32,10 @@ export default async function ScriptLibraryPage() {
     libraryScripts = preloadedScripts as any[]
   }
 
-  return <ScriptLibraryClient libraryScripts={libraryScripts} />
+  // useSearchParams() in the client page needs a Suspense boundary
+  return (
+    <Suspense>
+      <ScriptLibraryClient libraryScripts={libraryScripts} />
+    </Suspense>
+  )
 }

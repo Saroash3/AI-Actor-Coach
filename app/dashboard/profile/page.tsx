@@ -147,17 +147,17 @@ export default function ProfilePage() {
   // Get color intensity for heatmap based on count
   const getActivityColor = (count: number) => {
     if (count === 0) return 'bg-white/5 border-white/5'
-    if (count === 1) return 'bg-purple-500/20 border-purple-500/20'
-    if (count === 2) return 'bg-purple-500/40 border-purple-500/30'
-    if (count === 3) return 'bg-purple-500/60 border-purple-500/40'
-    return 'bg-purple-500 border-purple-400 shadow-[0_0_10px_rgba(168,85,247,0.4)]'
+    if (count === 1) return 'bg-spot-500/20 border-spot-500/20'
+    if (count === 2) return 'bg-spot-500/40 border-spot-500/30'
+    if (count === 3) return 'bg-spot-500/60 border-spot-500/40'
+    return 'bg-spot-500 border-spot-400 shadow-[0_0_10px_rgba(168,85,247,0.4)]'
   }
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-white">Profile Dashboard</h1>
+        <h1 className="font-display text-4xl text-bone">Profile Dashboard</h1>
         <p className="text-white/50">Manage your settings and track your acting journey</p>
       </div>
 
@@ -166,10 +166,10 @@ export default function ProfilePage() {
         <div className="lg:col-span-2 space-y-6">
           <div className="p-6 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10 relative overflow-hidden">
             {/* Decorative background glow */}
-            <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/10 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+            <div className="absolute top-0 right-0 w-64 h-64 bg-spot-500/10 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2 pointer-events-none" />
             
             <div className="mb-6 relative z-10">
-              <h2 className="text-lg font-semibold text-white">Personal Information</h2>
+              <h2 className="font-display text-xl text-bone">Personal Information</h2>
               <p className="text-sm text-white/40">Update your profile details</p>
             </div>
 
@@ -191,13 +191,13 @@ export default function ProfilePage() {
               {/* Avatar & Basic Info */}
               <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
                 <div className="relative group">
-                  <Avatar className="w-28 h-28 border-[3px] border-purple-500/30 shadow-[0_0_30px_rgba(168,85,247,0.15)] transition-all duration-300 group-hover:border-purple-500/60">
+                  <Avatar className="w-28 h-28 border-[3px] border-spot-500/30 shadow-[0_0_30px_rgba(168,85,247,0.15)] transition-all duration-300 group-hover:border-spot-500/60">
                     <AvatarImage src="/placeholder-avatar.jpg" />
-                    <AvatarFallback className="text-3xl bg-gradient-to-br from-purple-600 to-blue-600 text-white font-bold">
+                    <AvatarFallback className="text-3xl bg-gradient-to-br from-spot-600 to-spot-600 text-white font-bold">
                       {initials}
                     </AvatarFallback>
                   </Avatar>
-                  <button className="absolute bottom-1 right-1 p-2.5 bg-gradient-to-br from-purple-500 to-blue-500 text-white rounded-full shadow-lg hover:shadow-purple-500/40 transition-all hover:scale-110">
+                  <button className="absolute bottom-1 right-1 p-2.5 bg-gradient-to-br from-spot-300 to-spot-600 text-white rounded-full shadow-lg hover:shadow-spot-500/40 transition-all hover:scale-110">
                     <Camera className="w-4 h-4" />
                   </button>
                 </div>
@@ -208,7 +208,7 @@ export default function ProfilePage() {
                     {user?.email || ""}
                   </p>
                   <div className="flex flex-wrap justify-center sm:justify-start gap-2">
-                    <Badge className="bg-purple-500/10 text-purple-400 border border-purple-500/20 px-3 py-1">
+                    <Badge className="bg-spot-500/10 text-spot-400 border border-spot-500/20 px-3 py-1">
                       <Target className="w-3 h-3 mr-1" />
                       {performanceSummary.rank}
                     </Badge>
@@ -236,7 +236,7 @@ export default function ProfilePage() {
                         value={formData.name}
                         onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                         disabled={!isEditing}
-                        className="pl-11 bg-white/5 border-white/10 text-white disabled:text-white/50 disabled:opacity-70 rounded-xl h-11 focus:border-purple-500/50"
+                        className="pl-11 bg-white/5 border-white/10 text-white disabled:text-white/50 disabled:opacity-70 rounded-xl h-11 focus:border-spot-500/50"
                       />
                     </div>
                   </div>
@@ -250,7 +250,7 @@ export default function ProfilePage() {
                         value={formData.email}
                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                         disabled={!isEditing}
-                        className="pl-11 bg-white/5 border-white/10 text-white disabled:text-white/50 disabled:opacity-70 rounded-xl h-11 focus:border-purple-500/50"
+                        className="pl-11 bg-white/5 border-white/10 text-white disabled:text-white/50 disabled:opacity-70 rounded-xl h-11 focus:border-spot-500/50"
                       />
                     </div>
                   </div>
@@ -259,7 +259,7 @@ export default function ProfilePage() {
                 {isEditing && (
                   <div className="bg-black/20 p-5 rounded-xl border border-white/5 mt-2">
                     <h4 className="font-medium text-white mb-4 flex items-center gap-2">
-                      <Lock className="w-4 h-4 text-purple-400" />
+                      <Lock className="w-4 h-4 text-spot-400" />
                       Change Password
                     </h4>
                     <div className="grid gap-4">
@@ -270,7 +270,7 @@ export default function ProfilePage() {
                           type="password"
                           value={formData.currentPassword}
                           onChange={(e) => setFormData({ ...formData, currentPassword: e.target.value })}
-                          className="bg-white/5 border-white/10 text-white rounded-xl h-11 focus:border-purple-500/50"
+                          className="bg-white/5 border-white/10 text-white rounded-xl h-11 focus:border-spot-500/50"
                           placeholder="Required to change password"
                         />
                       </div>
@@ -282,7 +282,7 @@ export default function ProfilePage() {
                             type="password"
                             value={formData.newPassword}
                             onChange={(e) => setFormData({ ...formData, newPassword: e.target.value })}
-                            className="bg-white/5 border-white/10 text-white rounded-xl h-11 focus:border-purple-500/50"
+                            className="bg-white/5 border-white/10 text-white rounded-xl h-11 focus:border-spot-500/50"
                             placeholder="Min. 6 characters"
                           />
                         </div>
@@ -293,7 +293,7 @@ export default function ProfilePage() {
                             type="password"
                             value={formData.confirmPassword}
                             onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                            className="bg-white/5 border-white/10 text-white rounded-xl h-11 focus:border-purple-500/50"
+                            className="bg-white/5 border-white/10 text-white rounded-xl h-11 focus:border-spot-500/50"
                           />
                         </div>
                       </div>
@@ -309,13 +309,13 @@ export default function ProfilePage() {
                     <Button variant="outline" onClick={handleCancel} className="border-white/10 text-white/60 hover:text-white hover:bg-white/5 rounded-xl px-6">
                       Cancel
                     </Button>
-                    <Button onClick={handleSave} className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white rounded-xl shadow-lg shadow-purple-500/25 px-6">
+                    <Button onClick={handleSave} className="bg-gradient-to-b from-spot-300 to-spot-500 !text-stage-950 hover:from-spot-200 hover:to-spot-400 text-white rounded-xl shadow-lg shadow-spot-500/25 px-6">
                       <Save className="w-4 h-4 mr-2" />
                       Save Changes
                     </Button>
                   </>
                 ) : (
-                  <Button onClick={() => setIsEditing(true)} className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white rounded-xl shadow-lg shadow-purple-500/25 px-6">
+                  <Button onClick={() => setIsEditing(true)} className="bg-gradient-to-b from-spot-300 to-spot-500 !text-stage-950 hover:from-spot-200 hover:to-spot-400 text-white rounded-xl shadow-lg shadow-spot-500/25 px-6">
                     Edit Profile
                   </Button>
                 )}
@@ -328,7 +328,7 @@ export default function ProfilePage() {
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2">
                 <Activity className="w-5 h-5 text-emerald-400" />
-                <h2 className="text-lg font-semibold text-white">Activity Heatmap</h2>
+                <h2 className="font-display text-xl text-bone">Activity Heatmap</h2>
               </div>
               <span className="text-sm text-white/50">Last 30 days</span>
             </div>
@@ -360,7 +360,7 @@ export default function ProfilePage() {
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2">
                 <Award className="w-5 h-5 text-orange-400" />
-                <h2 className="text-lg font-semibold text-white">Achievements</h2>
+                <h2 className="font-display text-xl text-bone">Achievements</h2>
               </div>
               <span className="text-sm font-medium text-orange-400 bg-orange-500/10 px-3 py-1 rounded-full border border-orange-500/20">
                 {achievements.filter(a => a.earned).length} / {achievements.length} Unlocked
@@ -373,19 +373,19 @@ export default function ProfilePage() {
                   key={index}
                   className={`p-4 rounded-xl border relative overflow-hidden group ${
                     achievement.earned
-                      ? "bg-gradient-to-br from-purple-500/10 to-transparent border-purple-500/20"
+                      ? "bg-gradient-to-br from-spot-500/10 to-transparent border-spot-500/20"
                       : "bg-white/[0.02] border-white/5"
                   }`}
                 >
                   {achievement.earned && (
-                    <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl from-purple-500/20 to-transparent rounded-bl-full pointer-events-none" />
+                    <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl from-spot-500/20 to-transparent rounded-bl-full pointer-events-none" />
                   )}
                   
                   <div className="flex items-start gap-4">
                     <div
                       className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 shadow-inner ${
                         achievement.earned 
-                          ? "bg-gradient-to-br from-purple-500 to-blue-500 text-white shadow-purple-500/20" 
+                          ? "bg-gradient-to-br from-spot-300 to-spot-600 text-white shadow-spot-500/20" 
                           : "bg-white/5 text-white/20"
                       }`}
                     >
@@ -426,8 +426,8 @@ export default function ProfilePage() {
           {/* Radar Chart (Skills Breakdown) */}
           <div className="p-6 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10">
             <div className="flex items-center gap-2 mb-2">
-              <TrendingUp className="w-5 h-5 text-purple-400" />
-              <h2 className="text-lg font-semibold text-white">Skill Breakdown</h2>
+              <TrendingUp className="w-5 h-5 text-spot-400" />
+              <h2 className="font-display text-xl text-bone">Skill Breakdown</h2>
             </div>
             <p className="text-xs text-white/40 mb-6">Based on AI analysis across all sessions</p>
             
@@ -459,20 +459,20 @@ export default function ProfilePage() {
                 </RadarChart>
               </ResponsiveContainer>
               {/* Inner glow behind the chart */}
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 bg-purple-500/20 rounded-full blur-[40px] pointer-events-none" />
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 bg-spot-500/20 rounded-full blur-[40px] pointer-events-none" />
             </div>
           </div>
 
           {/* Performance Summary Stats */}
           <div className="p-6 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10">
-            <h2 className="text-lg font-semibold text-white mb-6">Overall Stats</h2>
+            <h2 className="font-display text-xl text-bone mb-6">Overall Stats</h2>
             
             <div className="grid grid-cols-2 gap-4 mb-6">
-              <div className="p-4 rounded-xl bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-purple-500/20 text-center">
+              <div className="p-4 rounded-xl bg-gradient-to-br from-spot-400/10 to-spot-600/10 border border-spot-500/20 text-center">
                 <span className="text-3xl font-bold text-white block mb-1">
                   {performanceSummary.averageScore}<span className="text-lg text-white/50">%</span>
                 </span>
-                <span className="text-xs text-purple-300 font-medium tracking-wide uppercase">Avg Score</span>
+                <span className="text-xs text-spot-300 font-medium tracking-wide uppercase">Avg Score</span>
               </div>
               <div className="p-4 rounded-xl bg-gradient-to-br from-cyan-500/10 to-emerald-500/10 border border-cyan-500/20 text-center">
                 <span className="text-3xl font-bold text-white block mb-1">
@@ -507,13 +507,13 @@ export default function ProfilePage() {
           {/* Recent Recordings */}
           <div className="p-6 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-semibold text-white">Recent Recordings</h2>
-              <Button variant="link" className="text-purple-400 h-auto p-0 text-xs">View all</Button>
+              <h2 className="font-display text-xl text-bone">Recent Recordings</h2>
+              <Button variant="link" className="text-spot-400 h-auto p-0 text-xs">View all</Button>
             </div>
 
             <div className="space-y-3">
               {recentRecordings.map((recording) => (
-                <div key={recording.id} className="group p-3 rounded-xl bg-white/[0.02] border border-white/5 hover:border-purple-500/30 hover:bg-white/5 transition-all flex gap-3">
+                <div key={recording.id} className="group p-3 rounded-xl bg-white/[0.02] border border-white/5 hover:border-spot-500/30 hover:bg-white/5 transition-all flex gap-3">
                   <div className="w-16 h-12 bg-black/40 rounded-lg flex items-center justify-center shrink-0 border border-white/10 relative overflow-hidden">
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                     <Play className="w-5 h-5 text-white/80 group-hover:text-white group-hover:scale-110 transition-all z-10" fill="currentColor" />

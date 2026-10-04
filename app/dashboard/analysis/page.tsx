@@ -70,7 +70,7 @@ export default function PerformanceAnalysisPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">Performance Analysis</h1>
+          <h1 className="font-display text-4xl text-bone">Performance Analysis</h1>
           <p className="text-white/50">AI feedback on your latest performance</p>
         </div>
         <Button variant="outline" className="border-white/10 text-white hover:bg-white/5 rounded-full">
@@ -84,9 +84,9 @@ export default function PerformanceAnalysisPage() {
         <div className="lg:col-span-1 space-y-4">
           <div className="rounded-2xl overflow-hidden bg-white/5 backdrop-blur-xl border border-white/10">
             <div className="aspect-video bg-gradient-to-br from-[#0d1120] to-[#151c32] flex items-center justify-center relative overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-blue-500/10" />
+              <div className="absolute inset-0 bg-gradient-to-br from-spot-400/10 to-spot-600/10" />
               <div className="relative text-center">
-                <div className="w-16 h-16 rounded-full bg-white/10 backdrop-blur-xl border border-white/20 flex items-center justify-center mx-auto mb-3 cursor-pointer hover:bg-white/20 transition-all shadow-lg shadow-purple-500/20">
+                <div className="w-16 h-16 rounded-full bg-white/10 backdrop-blur-xl border border-white/20 flex items-center justify-center mx-auto mb-3 cursor-pointer hover:bg-white/20 transition-all shadow-lg shadow-spot-500/20">
                   <Play className="w-8 h-8 text-white fill-current" />
                 </div>
                 <p className="text-white/50 text-sm">{performanceData.duration}</p>
@@ -100,7 +100,7 @@ export default function PerformanceAnalysisPage() {
 
           {/* Overall Score */}
           <div className="p-6 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10">
-            <h3 className="text-lg font-semibold text-white mb-4">Overall Performance</h3>
+            <h3 className="font-display text-xl text-bone mb-4">Overall Performance</h3>
             <div className="flex items-center justify-center py-4">
               <div className="relative w-32 h-32">
                 <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
@@ -149,7 +149,7 @@ export default function PerformanceAnalysisPage() {
           {/* Emotion Detection */}
           <div className="p-6 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10">
             <div className="flex items-center gap-2 text-lg font-semibold text-white mb-2">
-              <Smile className="w-5 h-5 text-purple-400" />
+              <Smile className="w-5 h-5 text-spot-400" />
               Emotion Detection
             </div>
             <p className="text-white/40 text-sm mb-6">How well you conveyed each emotion</p>
@@ -162,7 +162,7 @@ export default function PerformanceAnalysisPage() {
                   </div>
                   <div className="h-2 bg-white/10 rounded-full overflow-hidden">
                     <div 
-                      className="h-full bg-gradient-to-r from-purple-500 to-violet-500 rounded-full transition-all duration-500"
+                      className="h-full bg-gradient-to-r from-spot-300 to-spot-600 rounded-full transition-all duration-500"
                       style={{ width: `${value}%` }}
                     />
                   </div>
@@ -189,7 +189,7 @@ export default function PerformanceAnalysisPage() {
                   </div>
                   <div className="h-3 bg-white/10 rounded-full overflow-hidden">
                     <div 
-                      className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full transition-all duration-500 shadow-lg shadow-cyan-500/20"
+                      className="h-full bg-gradient-to-r from-cyan-500 to-spot-500 rounded-full transition-all duration-500 shadow-lg shadow-cyan-500/20"
                       style={{ width: `${value}%` }}
                     />
                   </div>
@@ -239,14 +239,14 @@ export default function PerformanceAnalysisPage() {
                   className={`p-4 rounded-xl backdrop-blur-sm transition-all hover:scale-[1.01] ${
                     suggestion.type === "success"
                       ? "bg-emerald-500/10 border border-emerald-500/20 hover:border-emerald-500/40"
-                      : "bg-purple-500/10 border border-purple-500/20 hover:border-purple-500/40"
+                      : "bg-spot-500/10 border border-spot-500/20 hover:border-spot-500/40"
                   }`}
                 >
                   <div className="flex items-start gap-3">
                     {suggestion.type === "success" ? (
                       <CheckCircle className="w-5 h-5 text-emerald-400 mt-0.5" />
                     ) : (
-                      <AlertCircle className="w-5 h-5 text-purple-400 mt-0.5" />
+                      <AlertCircle className="w-5 h-5 text-spot-400 mt-0.5" />
                     )}
                     <div>
                       <h4 className="font-medium text-white">{suggestion.title}</h4>

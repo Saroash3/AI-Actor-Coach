@@ -8,7 +8,7 @@ import {
   Play, Users, BookOpen, Loader2,
 } from "lucide-react"
 import { analyzeVoice, useVoiceRecorder, type VoiceAnalysisResult } from "@/lib/use-voice-recorder"
-import { scoreLine, type Baseline, type LineResult } from "@/lib/performance-scoring"
+import { countWords, estimateBaseline, scoreLine, type Baseline, type LineResult, type Prosody } from "@/lib/performance-scoring"
 import { LineResultCard, type AnalysisStatus } from "./line-result-card"
 import { SceneReport } from "./scene-report"
 import { Calibration, MicLevel } from "./calibration"
@@ -189,7 +189,7 @@ function ProgressBar({ current, total }: Readonly<{ current: number; total: numb
       </div>
       <div className="h-1.5 w-full rounded-full bg-white/10">
         <div
-          className="h-1.5 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 transition-all duration-500"
+          className="h-1.5 rounded-full bg-gradient-to-r from-spot-300 to-spot-600 transition-all duration-500"
           style={{ width: `${pct}%` }}
         />
       </div>
@@ -238,7 +238,7 @@ function ContextBlockUI({ block, ttsPlaying, isLast, onNext }: Readonly<{
       ) : (
         <Button
           onClick={onNext}
-          className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white rounded-xl gap-2"
+          className="w-full bg-gradient-to-b from-spot-300 to-spot-500 !text-stage-950 hover:from-spot-200 hover:to-spot-400 text-white rounded-xl gap-2"
         >
           {isLast ? "Finish Scene" : "Continue"}
           <ChevronRight className="w-4 h-4" />
@@ -267,12 +267,12 @@ function SpeechBlockUI({ block, emotionData, lineEmotionList, isLast, isRecordin
   onNext:           () => void
 }>) {
   return (
-    <div className="p-6 rounded-2xl bg-purple-500/5 border border-purple-500/20 space-y-5">
+    <div className="p-6 rounded-2xl bg-spot-500/5 border border-spot-500/20 space-y-5">
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-purple-400/70 mb-1">Your turn to speak</p>
-          <p className="text-2xl font-bold text-white">{block.speaker}</p>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-spot-400/70 mb-1">Your turn to speak</p>
+          <p className="font-display text-3xl text-bone">{block.speaker}</p>
         </div>
         {emotionData
           ? <div className="flex flex-col items-end gap-1">
@@ -356,7 +356,7 @@ function SpeechBlockUI({ block, emotionData, lineEmotionList, isLast, isRecordin
             className={`w-full rounded-xl gap-2 transition-all ${
               isRecording
                 ? "bg-red-500 hover:bg-red-400 shadow-lg shadow-red-500/30"
-                : "bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 shadow-lg shadow-purple-500/25"
+                : "bg-gradient-to-b from-spot-300 to-spot-500 !text-stage-950 hover:from-spot-200 hover:to-spot-400 shadow-lg shadow-spot-500/25"
             } text-white`}
           >
             {isRecording
@@ -405,8 +405,8 @@ export function StartScreen({
   return (
     <div className="space-y-8 max-w-2xl mx-auto">
       <div className="text-center">
-        <p className="text-purple-400 text-sm font-medium uppercase tracking-widest mb-3">{scriptTitle}</p>
-        <h1 className="text-3xl font-bold text-white mb-2">{sceneTitle}</h1>
+        <p className="text-spot-400 text-sm font-medium uppercase tracking-widest mb-3">{scriptTitle}</p>
+        <h1 className="mb-2 font-display text-4xl text-bone md:text-5xl">{sceneTitle}</h1>
         <p className="text-white/50 text-sm">
           {blocks.length} segments · {contextCount} context · {speechCount} speeches
         </p>
@@ -418,9 +418,9 @@ export function StartScreen({
           <p className="text-xs text-white/40 mb-1">Computer speaks</p>
           <p className="text-sm text-white">Stage directions are narrated automatically</p>
         </div>
-        <div className="p-4 rounded-2xl bg-purple-500/10 border border-purple-500/20">
-          <Mic className="w-5 h-5 text-purple-400 mb-2" />
-          <p className="text-xs text-purple-400/80 mb-1">You speak</p>
+        <div className="p-4 rounded-2xl bg-spot-500/10 border border-spot-500/20">
+          <Mic className="w-5 h-5 text-spot-400 mb-2" />
+          <p className="text-xs text-spot-400/80 mb-1">You speak</p>
           <p className="text-sm text-white">Your voice is recorded &amp; transcribed live</p>
         </div>
         <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
@@ -455,14 +455,14 @@ export function StartScreen({
             return (
               <div
                 key={`spk-${block.speaker}-${block.lines[0]?.slice(0, 20)}`}
-                className="rounded-xl bg-purple-500/8 border border-purple-500/20 px-4 py-3"
+                className="rounded-xl bg-spot-500/8 border border-spot-500/20 px-4 py-3"
               >
                 {/* Speaker header */}
                 <div className="flex items-start justify-between gap-3 mb-3">
                   <div>
                     <div className="flex items-center gap-2 mb-0.5">
-                      <Mic className="w-3 h-3 text-purple-400/60" />
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-purple-400/70">You speak</p>
+                      <Mic className="w-3 h-3 text-spot-400/60" />
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-spot-400/70">You speak</p>
                     </div>
                     <p className="text-base font-bold text-white">{block.speaker}</p>
                   </div>
@@ -505,7 +505,7 @@ export function StartScreen({
         <Button
           onClick={onStart}
           size="lg"
-          className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white rounded-full px-14 py-6 text-lg shadow-xl shadow-purple-500/30 gap-3"
+          className="bg-gradient-to-b from-spot-300 to-spot-500 !text-stage-950 hover:from-spot-200 hover:to-spot-400 text-white rounded-full px-14 py-6 text-lg shadow-xl shadow-spot-500/30 gap-3"
         >
           <Play className="w-5 h-5" />
           Begin Practice
@@ -547,6 +547,7 @@ export default function GuidedSession({
   const transcriptRef         = useRef("")      // latest transcript, readable after recording stops
   const transcriptPrefixRef   = useRef("")      // text from earlier recognition sessions in this take
   const recordingActiveRef    = useRef(false)
+  const sessionTakesRef       = useRef<{ prosody: Prosody; wordsPerSec: number }[]>([]) // for the estimated baseline
   const finishingRef          = useRef(false)
   const emotionsRef           = useRef(emotions)
   emotionsRef.current = emotions
@@ -649,14 +650,27 @@ export default function GuidedSession({
     let error: string | null = null
     if (voice instanceof Error) error = voice.message
     else if (voiceAvailable === false) error = "Voice analysis is offline, so only line accuracy was scored."
+    const heard = voice instanceof Error ? null : voice
+
+    // No calibration? Judge the voice pattern against the average of this session's takes instead
+    let effectiveBaseline = baseline
+    if (heard) {
+      const take = {
+        prosody:     heard.prosody,
+        wordsPerSec: (countWords(transcriptRef.current) || countWords(scriptText)) / Math.max(0.3, heard.prosody.speechSec),
+      }
+      // Estimate from *earlier* takes only: comparing a take with itself would always show "no change"
+      if (!effectiveBaseline) effectiveBaseline = estimateBaseline(sessionTakesRef.current)
+      sessionTakesRef.current.push(take)
+    }
 
     const result = scoreLine({
       speaker:    block.speaker,
       scriptText,
       transcript: transcriptRef.current,
       target:     target?.all ?? { neutral: 1 },
-      voice:      voice instanceof Error ? null : voice,
-      baseline,
+      voice:      heard,
+      baseline:   effectiveBaseline,
     })
     setAnalyses((prev) => ({ ...prev, [index]: { status: "done", result, error } }))
   }, [blocks, baseline, voiceAvailable])
@@ -774,7 +788,7 @@ export default function GuidedSession({
     if (pending) {
       return (
         <div className="flex flex-col items-center justify-center min-h-[400px] gap-3">
-          <Loader2 className="w-8 h-8 text-purple-400 animate-spin" />
+          <Loader2 className="w-8 h-8 text-spot-400 animate-spin" />
           <p className="text-white/70">Finishing your analysis…</p>
         </div>
       )

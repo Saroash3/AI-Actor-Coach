@@ -1,12 +1,13 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import { Inter, Playfair_Display } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { AuthProvider } from '@/lib/auth-context'
 import { ScriptsProvider } from '@/lib/scripts-context'
 import './globals.css'
 
 const fontSans = Inter({ subsets: ["latin"], variable: "--font-sans" });
-const fontMono = Inter({ subsets: ["latin"], variable: "--font-mono" });
+// Cinematic serif for headings (font-display)
+const fontDisplay = Playfair_Display({ subsets: ["latin"], variable: "--font-display", style: ["normal", "italic"] });
 
 export const metadata: Metadata = {
   title: 'ActorPro AI - Intelligent Acting Coach',
@@ -37,14 +38,15 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
-      <body className={`${fontSans.variable} ${fontMono.variable} font-sans antialiased`}>
+    <html lang="en" className="dark">
+      <body className={`${fontSans.variable} ${fontDisplay.variable} font-sans antialiased bg-stage-950 text-bone`}>
         <AuthProvider>
           <ScriptsProvider>
             {children}
             <Analytics />
           </ScriptsProvider>
         </AuthProvider>
+        <div className="film-grain" aria-hidden />
       </body>
     </html>
   )

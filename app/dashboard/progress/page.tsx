@@ -57,20 +57,20 @@ export default function ProgressTrackerPage() {
   return (
     <div className="space-y-8 pb-10">
       {/* Header */}
-      <div className="relative overflow-hidden p-8 rounded-3xl bg-gradient-to-r from-purple-500/10 via-blue-500/10 to-transparent border border-white/5">
+      <div className="relative overflow-hidden p-8 rounded-3xl bg-gradient-to-r from-spot-500/10 via-spot-500/10 to-transparent border border-white/5">
         <div className="relative z-10">
-          <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">Progress Tracker</h1>
+          <h1 className="font-display text-4xl text-bone mb-2 tracking-tight">Progress Tracker</h1>
           <p className="text-white/60 text-lg">Visualize your journey to becoming a master actor</p>
         </div>
-        <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/20 blur-[100px] -mr-32 -mt-32 rounded-full" />
+        <div className="absolute top-0 right-0 w-64 h-64 bg-spot-500/20 blur-[100px] -mr-32 -mt-32 rounded-full" />
       </div>
 
       {/* Stats Overview */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {[
-          { label: "Overall Progress", value: "+26%", icon: TrendingUp, color: "from-purple-500 to-blue-500", bg: "bg-purple-500/10" },
+          { label: "Overall Progress", value: "+26%", icon: TrendingUp, color: "from-spot-300 to-spot-600", bg: "bg-spot-500/10" },
           { label: "Current Average", value: "78%", icon: Target, color: "from-blue-500 to-cyan-500", bg: "bg-blue-500/10" },
-          { label: "Sessions Month", value: "12", icon: Calendar, color: "from-pink-500 to-purple-500", bg: "bg-pink-500/10" },
+          { label: "Sessions Month", value: "12", icon: Calendar, color: "from-pink-500 to-spot-500", bg: "bg-pink-500/10" },
           { label: "Milestones", value: "5", icon: Award, color: "from-amber-500 to-orange-500", bg: "bg-amber-500/10" },
         ].map((stat, i) => (
           <Card key={i} className="group overflow-hidden border-white/5 bg-white/[0.03] backdrop-blur-xl hover:bg-white/[0.06] transition-all duration-300">
@@ -97,12 +97,12 @@ export default function ProgressTrackerPage() {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-xl flex items-center gap-2 text-white">
-                  <TrendingUp className="w-5 h-5 text-purple-400" />
+                  <TrendingUp className="w-5 h-5 text-spot-400" />
                   Weekly Performance
                 </CardTitle>
                 <CardDescription className="text-white/40 mt-1">Consistency and growth over 8 weeks</CardDescription>
               </div>
-              <Badge variant="outline" className="bg-purple-500/10 text-purple-400 border-purple-500/20">
+              <Badge variant="outline" className="bg-spot-500/10 text-spot-400 border-spot-500/20">
                 Live Data
               </Badge>
             </div>
@@ -283,7 +283,7 @@ export default function ProgressTrackerPage() {
               {[
                 { label: 'Clarity', color: 'bg-cyan-400' },
                 { label: 'Pitch', color: 'bg-indigo-400' },
-                { label: 'Tone', color: 'bg-purple-400' },
+                { label: 'Tone', color: 'bg-spot-400' },
               ].map((item, i) => (
                 <div key={i} className="flex items-center gap-2">
                   <div className={`w-3 h-3 rounded-full ${item.color} shadow-lg shadow-${item.color.split('-')[1]}-500/20`} />
@@ -316,7 +316,7 @@ export default function ProgressTrackerPage() {
                     className={`w-12 h-12 rounded-xl flex items-center justify-center transition-transform duration-300 group-hover:rotate-12 ${
                       milestone.achieved 
                         ? milestone.type === 'milestone' 
-                          ? 'bg-purple-500/20 text-purple-400' 
+                          ? 'bg-spot-500/20 text-spot-400' 
                           : 'bg-green-500/20 text-green-400'
                         : 'bg-white/5 text-white/20'
                     }`}
@@ -328,12 +328,12 @@ export default function ProgressTrackerPage() {
                     )}
                   </div>
                   <div className="flex-1">
-                    <p className="font-semibold text-white group-hover:text-purple-300 transition-colors">{milestone.title}</p>
+                    <p className="font-semibold text-white group-hover:text-spot-300 transition-colors">{milestone.title}</p>
                     <p className="text-sm text-white/40 font-medium">{milestone.date}</p>
                   </div>
                   {milestone.achieved ? (
                     <div className="flex flex-col items-end gap-1">
-                      <Badge variant="outline" className="bg-purple-500/10 text-purple-400 border-purple-500/20 px-3 py-1">
+                      <Badge variant="outline" className="bg-spot-500/10 text-spot-400 border-spot-500/20 px-3 py-1">
                         Completed
                       </Badge>
                     </div>

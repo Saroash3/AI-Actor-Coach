@@ -28,7 +28,7 @@ function ArcTooltip({ active, payload }: any) {
   if (!active || !payload?.length) return null
   const row = payload[0].payload
   return (
-    <div className="rounded-lg border border-white/10 bg-[#12162a] px-3 py-2 text-xs shadow-xl">
+    <div className="rounded-lg border border-white/10 bg-stage-850 px-3 py-2 text-xs shadow-xl">
       <p className="text-white font-semibold mb-1">Line {row.n} · {row.speaker}</p>
       <p className="text-white/70">Target <span className="capitalize">{row.emotion}</span>: <span className="text-white tabular-nums">{row.target}%</span></p>
       <p className="text-white/70">You: <span className="text-white tabular-nums">{row.you ?? "–"}{row.you != null && "%"}</span>{row.heard && row.heard !== row.emotion && <span className="text-white/50"> (sounded {row.heard})</span>}</p>
@@ -59,9 +59,9 @@ export function SceneReport({ lines, baseline, onRestart }: Readonly<{
   if (lines.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] text-center space-y-5">
-        <h2 className="text-3xl font-bold text-white">Scene complete</h2>
+        <h2 className="font-display text-4xl text-bone">Scene complete</h2>
         <p className="text-white/50 max-w-sm">You didn't record any lines this time, so there's nothing to score yet.</p>
-        <Button onClick={onRestart} className="bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-full px-8 gap-2">
+        <Button onClick={onRestart} className="bg-gradient-to-b from-spot-300 to-spot-500 !text-stage-950 text-white rounded-full px-8 gap-2">
           <RotateCcw className="w-4 h-4" /> Practice again
         </Button>
       </div>
@@ -103,7 +103,7 @@ export function SceneReport({ lines, baseline, onRestart }: Readonly<{
         <div className="p-5 rounded-2xl bg-white/5 border border-white/10">
           <div className="flex items-start justify-between gap-3 mb-4">
             <div>
-              <h3 className="text-white font-semibold">Emotional arc</h3>
+              <h3 className="font-display text-xl text-bone">Emotional arc</h3>
               <p className="text-xs text-white/40">How strongly each line's target emotion came through in your voice</p>
             </div>
             <Button
@@ -162,7 +162,7 @@ export function SceneReport({ lines, baseline, onRestart }: Readonly<{
       {/* Voice profile */}
       {report.paceWpm != null && (
         <div>
-          <h3 className="text-white font-semibold mb-3">Your voice in this scene</h3>
+          <h3 className="mb-3 font-display text-xl text-bone">Your voice in this scene</h3>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <Tile icon={Gauge}   label="Pace"          value={`${report.paceWpm} wpm`} note="natural stage speech: 130–160" />
             <Tile icon={Music}   label="Pitch variety" value={report.pitchRangeSt != null ? `${report.pitchRangeSt} st` : "–"} note={rangeNote} />
@@ -188,15 +188,15 @@ export function SceneReport({ lines, baseline, onRestart }: Readonly<{
 
       {/* Recommendations */}
       <div>
-        <h3 className="text-white font-semibold mb-3">Recommendations</h3>
+        <h3 className="mb-3 font-display text-xl text-bone">Recommendations</h3>
         <div className="space-y-3">
           {report.recommendations.map((rec) => (
             <div key={rec.title} className="p-4 rounded-xl bg-white/5 border border-white/10">
               <p className="text-white font-medium">{rec.title}</p>
               <p className="text-sm text-white/60 mt-1">{rec.detail}</p>
-              <div className="mt-3 p-3 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-start gap-2">
-                <Dumbbell className="w-4 h-4 text-purple-300 shrink-0 mt-0.5" />
-                <p className="text-sm text-white/80"><span className="text-purple-300 font-medium">Exercise: </span>{rec.exercise}</p>
+              <div className="mt-3 p-3 rounded-lg bg-spot-500/10 border border-spot-500/20 flex items-start gap-2">
+                <Dumbbell className="w-4 h-4 text-spot-300 shrink-0 mt-0.5" />
+                <p className="text-sm text-white/80"><span className="text-spot-300 font-medium">Exercise: </span>{rec.exercise}</p>
               </div>
             </div>
           ))}
@@ -204,7 +204,7 @@ export function SceneReport({ lines, baseline, onRestart }: Readonly<{
       </div>
 
       <div className="flex justify-center pt-2">
-        <Button onClick={onRestart} size="lg" className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white rounded-full px-10 gap-2">
+        <Button onClick={onRestart} size="lg" className="bg-gradient-to-b from-spot-300 to-spot-500 !text-stage-950 hover:from-spot-200 hover:to-spot-400 text-white rounded-full px-10 gap-2">
           <RotateCcw className="w-4 h-4" /> Practice again
         </Button>
       </div>

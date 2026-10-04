@@ -70,8 +70,8 @@ function ScriptBlock({ block, index }: Readonly<{ block: any; index: number }>) 
     )
   }
   return (
-    <div key={`spk-${index}-${block.speaker}`} className="rounded-lg bg-purple-500/5 border border-purple-500/15 px-3 py-2">
-      <p className="text-[10px] font-bold uppercase tracking-widest text-purple-400 mb-2">{block.speaker}</p>
+    <div key={`spk-${index}-${block.speaker}`} className="rounded-lg bg-spot-500/5 border border-spot-500/15 px-3 py-2">
+      <p className="text-[10px] font-bold uppercase tracking-widest text-spot-400 mb-2">{block.speaker}</p>
       {block.lines.map((line: string, j: number) => (
         <p key={`${j}-${line.slice(0, 15)}`} className="text-sm text-white/80 leading-relaxed">{line}</p>
       ))}
@@ -228,7 +228,7 @@ function PracticeSessionContent() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-white">Practice Session</h1>
+          <h1 className="font-display text-3xl text-bone">Practice Session</h1>
           <p className="text-white/50">{script ? `Practicing: ${script.title}` : "Demo — Hamlet"}</p>
         </div>
         <GuidedSession
@@ -244,7 +244,7 @@ function PracticeSessionContent() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-white">Practice Session</h1>
+        <h1 className="font-display text-3xl text-bone">Practice Session</h1>
         <p className="text-white/50">
           {script ? `Practicing: ${script.title}` : "Record your performance and receive AI feedback"}
         </p>
@@ -260,8 +260,8 @@ function PracticeSessionContent() {
               <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#0d1120] to-[#151c32]">
                 {cameraOn ? (
                   <div className="text-center">
-                    <div className="w-24 h-24 rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 border border-purple-500/20 flex items-center justify-center mx-auto mb-4 animate-pulse">
-                      <Video className="w-12 h-12 text-purple-400" />
+                    <div className="w-24 h-24 rounded-full bg-gradient-to-br from-spot-400/20 to-spot-600/20 border border-spot-500/20 flex items-center justify-center mx-auto mb-4 animate-pulse">
+                      <Video className="w-12 h-12 text-spot-400" />
                     </div>
                     <p className="text-white/50">Camera Preview</p>
                   </div>
@@ -292,7 +292,7 @@ function PracticeSessionContent() {
                   {[...Array(12)].map((_, i) => (
                     <div
                       key={i}
-                      className="w-1 bg-gradient-to-t from-cyan-500 to-purple-500 rounded-full animate-pulse"
+                      className="w-1 bg-gradient-to-t from-cyan-500 to-spot-500 rounded-full animate-pulse"
                       style={{
                         height: `${Math.random() * 100}%`,
                         animationDelay: `${i * 0.1}s`,
@@ -381,7 +381,7 @@ function PracticeSessionContent() {
                     </Button>
                     <Button 
                       size="lg" 
-                      className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white rounded-full shadow-lg shadow-purple-500/25"
+                      className="gap-2 bg-gradient-to-b from-spot-300 to-spot-500 !text-stage-950 hover:from-spot-200 hover:to-spot-400 text-white rounded-full shadow-lg shadow-spot-500/25"
                     >
                       <Upload className="w-4 h-4" />
                       Submit for Analysis
@@ -394,9 +394,9 @@ function PracticeSessionContent() {
 
           {/* Upload Option */}
           <div className="p-6 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10">
-            <div className="border-2 border-dashed border-white/10 rounded-xl p-8 text-center hover:border-purple-500/30 transition-all cursor-pointer group">
-              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-purple-500/20 flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
-                <Upload className="w-7 h-7 text-purple-400" />
+            <div className="border-2 border-dashed border-white/10 rounded-xl p-8 text-center hover:border-spot-500/30 transition-all cursor-pointer group">
+              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-spot-400/10 to-spot-600/10 border border-spot-500/20 flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
+                <Upload className="w-7 h-7 text-spot-400" />
               </div>
               <p className="font-medium text-white mb-1">Upload a video</p>
               <p className="text-sm text-white/40">Or drag and drop a video file here</p>
@@ -410,7 +410,7 @@ function PracticeSessionContent() {
           {/* Scene Info */}
           <div className="p-6 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10">
             <div className="flex items-center gap-2 text-lg font-semibold text-white mb-4">
-              <BookOpen className="w-5 h-5 text-purple-400" />
+              <BookOpen className="w-5 h-5 text-spot-400" />
               Current Scene
             </div>
             <div className="space-y-4">
@@ -423,7 +423,7 @@ function PracticeSessionContent() {
                   <Clock className="w-3 h-3 mr-1" />
                   {sceneDuration}
                 </Badge>
-                <Badge className="bg-purple-500/20 text-purple-400 border border-purple-500/20">
+                <Badge className="bg-spot-500/20 text-spot-400 border border-spot-500/20">
                   {primaryEmotion}
                 </Badge>
               </div>
@@ -468,7 +468,7 @@ export default function PracticeSessionPage() {
     <Suspense fallback={
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex items-center gap-2">
-          <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+          <div className="w-2 h-2 bg-spot-500 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
           <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
           <div className="w-2 h-2 bg-cyan-500 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
         </div>

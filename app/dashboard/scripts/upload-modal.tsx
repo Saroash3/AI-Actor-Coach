@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef } from "react"
+import { createPortal } from "react-dom"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -71,12 +72,14 @@ export default function UploadScriptModal({ onClose }: { onClose: () => void }) 
     }
   }
 
-  return (
+  // Portal to <body> so the backdrop covers the sidebar and header too
+  // (the dashboard content column is its own stacking context)
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-lg bg-[#12162a] border border-white/10 rounded-2xl p-6 shadow-2xl">
+      <div className="relative w-full max-w-lg bg-stage-850 border border-white/10 rounded-2xl p-6 shadow-2xl">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-white">Upload Script</h2>
+          <h2 className="font-display text-2xl text-bone">Upload a script</h2>
           <button onClick={onClose} className="text-white/40 hover:text-white">
             <X className="w-5 h-5" />
           </button>
@@ -123,10 +126,10 @@ export default function UploadScriptModal({ onClose }: { onClose: () => void }) 
           <div className="space-y-2">
             <Label className="text-white/70">Upload .txt file</Label>
             <div
-              className="border-2 border-dashed border-white/10 rounded-xl p-6 text-center hover:border-purple-500/30 transition-all cursor-pointer group"
+              className="border-2 border-dashed border-white/10 rounded-xl p-6 text-center hover:border-spot-500/30 transition-all cursor-pointer group"
               onClick={() => fileInputRef.current?.click()}
             >
-              <Upload className="w-8 h-8 text-purple-400/50 mx-auto mb-2 group-hover:text-purple-400 transition-colors" />
+              <Upload className="w-8 h-8 text-spot-400/50 mx-auto mb-2 group-hover:text-spot-400 transition-colors" />
               <p className="text-sm text-white/40 group-hover:text-white/60">Click to upload a .txt file</p>
               <input
                 ref={fileInputRef}
@@ -145,7 +148,7 @@ export default function UploadScriptModal({ onClose }: { onClose: () => void }) 
               onChange={(e) => setUploadText(e.target.value)}
               placeholder="Paste your script text here..."
               rows={6}
-              className="w-full rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-white/25 p-3 text-sm focus:border-purple-500/50 focus:outline-none focus:ring-1 focus:ring-purple-500/20 resize-none"
+              className="w-full rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-white/25 p-3 text-sm focus:border-spot-500/50 focus:outline-none focus:ring-1 focus:ring-spot-500/20 resize-none"
             />
           </div>
 
@@ -161,7 +164,7 @@ export default function UploadScriptModal({ onClose }: { onClose: () => void }) 
             <Button
               onClick={handleUploadSubmit}
               disabled={isUploading}
-              className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white rounded-xl shadow-lg shadow-purple-500/25"
+              className="flex-1 bg-gradient-to-b from-spot-300 to-spot-500 !text-stage-950 hover:from-spot-200 hover:to-spot-400 text-white rounded-xl shadow-lg shadow-spot-500/25"
             >
               <Upload className="w-4 h-4 mr-2" />
               {isUploading ? "Uploading..." : "Upload Script"}
@@ -169,6 +172,7 @@ export default function UploadScriptModal({ onClose }: { onClose: () => void }) 
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
