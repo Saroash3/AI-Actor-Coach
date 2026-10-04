@@ -72,8 +72,10 @@
       active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none;
   }
   /* Surfaces */
+  /* No backdrop blur: on this dark stage it's barely visible, and every blurred card
+     is re-rendered on each scroll frame (a big cause of scroll stutter) */
   .panel {
-    @apply rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.045] to-white/[0.015] backdrop-blur-xl;
+    @apply rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.045] to-white/[0.015];
   }
   .panel-hover {
     @apply transition-all duration-300 hover:border-spot-400/25 hover:from-white/[0.06];
@@ -88,36 +90,34 @@
   }
 }
 
-/* Film grain over the whole app — a subtle cinematic texture */
+/* Film grain over the whole app — a subtle cinematic texture.
+   Static on purpose: an animated full-screen layer competes with scrolling for every frame. */
 .film-grain {
   pointer-events: none;
   position: fixed;
-  inset: -50%;
+  inset: 0;
   z-index: 60;
   opacity: 0.05;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  animation: grain 1.2s steps(6) infinite;
-}
-@keyframes grain {
-  0%   { transform: translate(0, 0); }
-  20%  { transform: translate(-3%, 2%); }
-  40%  { transform: translate(2%, -3%); }
-  60%  { transform: translate(-2%, 3%); }
-  80%  { transform: translate(3%, -1%); }
-  100% { transform: translate(0, 0); }
 }
 
-/* Lenis smooth scrolling */
-html.lenis, html.lenis body { height: auto; }
-.lenis.lenis-smooth { scroll-behavior: auto !important; }
-.lenis.lenis-smooth [data-lenis-prevent] { overscroll-behavior: contain; }
-.lenis.lenis-stopped { overflow: hidden; }
+/* Native scrolling; in-page links (#features) glide, landing below the fixed nav */
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 80px;
+}
+
+/* Hero waveform: runs on the compositor (transform only), not in JavaScript */
+@keyframes wave {
+  0%, 100% { transform: scaleY(var(--lo)); }
+  50%      { transform: scaleY(var(--hi)); }
+}
 
 /* Thin, themed scrollbars */
 * { scrollbar-width: thin; scrollbar-color: #2e2737 transparent; }
 
 @media (prefers-reduced-motion: reduce) {
-  .film-grain { animation: none; }
+  html { scroll-behavior: auto; }
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;

@@ -33,7 +33,8 @@ export function LandingNav() {
       transition={{ duration: 0.8, delay: 0.9, ease: [0.22, 1, 0.36, 1] }}
       className={cn(
         "fixed inset-x-0 top-0 z-50 transition-all duration-500",
-        scrolled ? "border-b border-white/[0.06] bg-stage-950/75 backdrop-blur-xl" : "bg-transparent",
+        // near-opaque instead of a heavy backdrop blur, which is re-rendered on every scroll frame
+        scrolled ? "border-b border-white/[0.06] bg-stage-950/90 backdrop-blur-sm" : "bg-transparent",
       )}
     >
       <nav className="mx-auto flex h-[72px] max-w-7xl items-center justify-between px-5 lg:px-8">

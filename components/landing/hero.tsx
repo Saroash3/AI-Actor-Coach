@@ -54,15 +54,19 @@ function LiveTakeCard() {
         </div>
 
         {/* Waveform */}
+        {/* CSS animation (see @keyframes wave), so the bars don't cost JavaScript work while scrolling */}
         <div className="mt-5 flex h-14 items-center gap-[3px]" aria-hidden>
           {BARS.map((h, i) => (
-            <motion.span
+            <span
               key={i}
-              className="w-full rounded-full bg-gradient-to-t from-spot-600 to-spot-300"
-              initial={{ scaleY: 0.1 }}
-              animate={reduce ? { scaleY: h } : { scaleY: [h * 0.4, h, h * 0.6, h * 0.9, h * 0.4] }}
-              transition={reduce ? undefined : { duration: 1.8, repeat: Infinity, delay: i * 0.04, ease: "easeInOut" }}
-              style={{ height: "100%", originY: 0.5, opacity: 0.35 + h * 0.65 }}
+              className="h-full w-full rounded-full bg-gradient-to-t from-spot-600 to-spot-300"
+              style={{
+                opacity: 0.35 + h * 0.65,
+                transform: `scaleY(${h})`,
+                animation: reduce ? undefined : `wave 1.8s ease-in-out ${(i * 0.04).toFixed(2)}s infinite`,
+                ["--lo" as string]: (h * 0.4).toFixed(3),
+                ["--hi" as string]: h.toFixed(3),
+              }}
             />
           ))}
         </div>
