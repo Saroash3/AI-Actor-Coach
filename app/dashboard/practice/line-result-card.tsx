@@ -1,6 +1,6 @@
 "use client"
 
-import { Loader2, RotateCcw, ArrowUp, ArrowDown, Minus, Check, X, Lightbulb, AlertTriangle } from "lucide-react"
+import { Loader2, RotateCcw, ArrowUp, ArrowDown, Minus, Check, X, Lightbulb, AlertTriangle, Camera } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { FEATURE_LABELS, type LineResult } from "@/lib/performance-scoring"
 
@@ -91,6 +91,9 @@ export function LineResultCard({ status, result, error, onRetry }: Readonly<{
         <div className="flex-1 min-w-0 space-y-2">
           <p className={`text-sm font-semibold ${band.text}`}>{band.label}</p>
           <ComponentBar label="Emotion match" value={result.emotion} hint="Did your voice carry the target emotion? (50%)" />
+          {result.faceScore != null && (
+            <ComponentBar label="Face expression" value={result.faceScore} hint="Did your face show the right emotion? (20% when camera is on)" />
+          )}
           <ComponentBar
             label="Voice pattern"
             value={result.voice}
@@ -156,7 +159,10 @@ export function LineResultCard({ status, result, error, onRetry }: Readonly<{
       <ul className="space-y-1.5">
         {result.tips.map((tip) => (
           <li key={tip.text} className="flex items-start gap-2 text-sm text-white/75">
-            <Lightbulb className={`w-4 h-4 shrink-0 mt-0.5 ${tip.kind === "praise" ? "text-green-400" : "text-orange-300"}`} />
+            {tip.kind === "face"
+              ? <Camera className="w-4 h-4 shrink-0 mt-0.5 text-violet-400" />
+              : <Lightbulb className={`w-4 h-4 shrink-0 mt-0.5 ${tip.kind === "praise" ? "text-green-400" : "text-orange-300"}`} />
+            }
             {tip.text}
           </li>
         ))}

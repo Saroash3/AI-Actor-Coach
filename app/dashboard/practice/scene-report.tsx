@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react"
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
-import { Trophy, TrendingDown, Gauge, Music, Volume2, Pause, Dumbbell, RotateCcw, Table2, LineChart as LineChartIcon } from "lucide-react"
+import { Trophy, TrendingDown, Gauge, Music, Volume2, Pause, Dumbbell, RotateCcw, Table2, LineChart as LineChartIcon, Camera } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { buildSceneReport, type Baseline, type LineResult } from "@/lib/performance-scoring"
 import { ScoreRing, scoreBand } from "./line-result-card"
@@ -53,8 +53,11 @@ export function SceneReport({ lines, baseline, onRestart }: Readonly<{
     target:  Math.round((l.target[l.targetTop] ?? 0) * 100),
     you:     l.achieved ? Math.round((l.achieved[l.targetTop] ?? 0) * 100) : null,
     score:   l.total,
+    faceTop: l.faceTop,
+    face:    l.faceScore,
   }))
   const hasVoice = arc.some((a) => a.you != null)
+  const hasFace  = lines.some((l) => l.faceScore != null)
 
   if (lines.length === 0) {
     return (
@@ -83,9 +86,10 @@ export function SceneReport({ lines, baseline, onRestart }: Readonly<{
             <p className="text-xs uppercase tracking-widest text-white/40">Scene score · {report.lineCount} {report.lineCount === 1 ? "line" : "lines"}</p>
             <p className={`text-2xl font-bold ${band.text}`}>{band.label}</p>
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className={hasFace ? "grid grid-cols-4 gap-3" : "grid grid-cols-3 gap-3"}>
             {[
               ["Emotion match", report.emotion],
+              ...(hasFace ? [["Face expression", (() => { const vals = lines.map((l) => l.faceScore).filter((v): v is number => v != null); return vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null })()]] : []),
               ["Voice pattern", report.voice],
               ["Line accuracy", report.accuracy],
             ].map(([label, value]) => (
