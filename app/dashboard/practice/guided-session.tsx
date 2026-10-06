@@ -8,10 +8,12 @@ import {
   Play, Users, BookOpen, Loader2,
 } from "lucide-react"
 import { analyzeVoice, useVoiceRecorder, type VoiceAnalysisResult } from "@/lib/use-voice-recorder"
+import { useFaceAnalyzer, type FaceAnalysisResult } from "@/lib/use-face-analyzer"
 import { countWords, estimateBaseline, scoreLine, type Baseline, type LineResult, type Prosody } from "@/lib/performance-scoring"
 import { LineResultCard, type AnalysisStatus } from "./line-result-card"
 import { SceneReport } from "./scene-report"
 import { Calibration, MicLevel } from "./calibration"
+import { FacePanel } from "./face-panel"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -250,7 +252,9 @@ function ContextBlockUI({ block, ttsPlaying, isLast, onNext }: Readonly<{
 
 // ─── Speech Block UI ──────────────────────────────────────────────────────────
 
-function SpeechBlockUI({ block, emotionData, lineEmotionList, isLast, isRecording, recorded, transcript, micLevel, micError, analysis, onStartRecording, onStopRecording, onRetry, onNext }: Readonly<{
+function SpeechBlockUI({ block, emotionData, lineEmotionList, isLast, isRecording, recorded, transcript, micLevel, micError, analysis,
+  faceAnalyzer, facePanelVideoRef, faceEnabled, onToggleFace, faceResult,
+  onStartRecording, onStopRecording, onRetry, onNext }: Readonly<{
   block:            SpeechBlock
   emotionData:      EmotionData | undefined
   lineEmotionList:  (LineEmotion | null)[] | undefined
@@ -261,6 +265,11 @@ function SpeechBlockUI({ block, emotionData, lineEmotionList, isLast, isRecordin
   micLevel:         number
   micError:         string | null
   analysis:         LineAnalysis | undefined
+  faceAnalyzer:     ReturnType<typeof useFaceAnalyzer>
+  facePanelVideoRef: (el: HTMLVideoElement | null) => void
+  faceEnabled:      boolean
+  onToggleFace:     () => void
+  faceResult:       FaceAnalysisResult | null
   onStartRecording: () => void
   onStopRecording:  () => void
   onRetry:          () => void
@@ -331,53 +340,71 @@ function SpeechBlockUI({ block, emotionData, lineEmotionList, isLast, isRecordin
         })}
       </div>
 
-      {/* Recording controls */}
-      <div className="space-y-3">
-        {isRecording && (
-          <div className="flex items-center justify-between p-3 rounded-xl bg-black/20 border border-white/5">
-            <span className="text-xs text-white/50">Recording · stops automatically when you pause</span>
-            <MicLevel level={micLevel} />
-          </div>
-        )}
-        {micError && <p className="text-sm text-yellow-300/90">{micError}</p>}
-        {recorded ? (
-          <Button
-            onClick={onNext}
-            size="lg"
-            className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white rounded-xl gap-2 shadow-lg shadow-green-500/25"
-          >
-            <CheckCircle className="w-4 h-4" />
-            {isLast ? "Finish Scene" : "Next"}
-          </Button>
-        ) : (
-          <Button
-            onClick={isRecording ? onStopRecording : onStartRecording}
-            size="lg"
-            className={`w-full rounded-xl gap-2 transition-all ${
-              isRecording
-                ? "bg-red-500 hover:bg-red-400 shadow-lg shadow-red-500/30"
-                : "bg-gradient-to-b from-spot-300 to-spot-500 !text-stage-950 hover:from-spot-200 hover:to-spot-400 shadow-lg shadow-spot-500/25"
-            } text-white`}
-          >
-            {isRecording
-              ? <><MicOff className="w-4 h-4" /> Stop Recording</>
-              : <><Mic className="w-4 h-4" /> Start Speaking</>
-            }
-          </Button>
-        )}
-      </div>
+      {/* ── Camera + voice grid ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Face panel */}
+        <FacePanel
+          isActive={faceAnalyzer.isActive}
+          isLoading={faceAnalyzer.isLoading}
+          error={faceAnalyzer.error}
+          liveEmotion={faceAnalyzer.liveEmotion}
+          liveEmotions={faceAnalyzer.liveEmotions}
+          result={faceResult}
+          onVideoRef={facePanelVideoRef}
+          enabled={faceEnabled}
+          onToggle={onToggleFace}
+        />
 
-      {/* Live transcript */}
-      {(isRecording || transcript) && (
-        <div className="p-4 rounded-xl bg-black/30 border border-white/10">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-white/30 mb-2">
-            {isRecording ? "Listening…" : "You said:"}
-          </p>
-          <p className={`text-sm leading-relaxed ${isRecording ? "text-white/50 animate-pulse" : "text-white/80"}`}>
-            {transcript || "…"}
-          </p>
+        {/* Recording controls (right column) */}
+        <div className="space-y-3 flex flex-col justify-between">
+          <div className="space-y-3">
+            {isRecording && (
+              <div className="flex items-center justify-between p-3 rounded-xl bg-black/20 border border-white/5">
+                <span className="text-xs text-white/50">Recording · stops automatically when you pause</span>
+                <MicLevel level={micLevel} />
+              </div>
+            )}
+            {micError && <p className="text-sm text-yellow-300/90">{micError}</p>}
+            {recorded ? (
+              <Button
+                onClick={onNext}
+                size="lg"
+                className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white rounded-xl gap-2 shadow-lg shadow-green-500/25"
+              >
+                <CheckCircle className="w-4 h-4" />
+                {isLast ? "Finish Scene" : "Next"}
+              </Button>
+            ) : (
+              <Button
+                onClick={isRecording ? onStopRecording : onStartRecording}
+                size="lg"
+                className={`w-full rounded-xl gap-2 transition-all ${
+                  isRecording
+                    ? "bg-red-500 hover:bg-red-400 shadow-lg shadow-red-500/30"
+                    : "bg-gradient-to-b from-spot-300 to-spot-500 !text-stage-950 hover:from-spot-200 hover:to-spot-400 shadow-lg shadow-spot-500/25"
+                } text-white`}
+              >
+                {isRecording
+                  ? <><MicOff className="w-4 h-4" /> Stop Recording</>
+                  : <><Mic className="w-4 h-4" /> Start Speaking</>
+                }
+              </Button>
+            )}
+          </div>
+
+          {/* Live transcript */}
+          {(isRecording || transcript) && (
+            <div className="p-4 rounded-xl bg-black/30 border border-white/10">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-white/30 mb-2">
+                {isRecording ? "Listening…" : "You said:"}
+              </p>
+              <p className={`text-sm leading-relaxed ${isRecording ? "text-white/50 animate-pulse" : "text-white/80"}`}>
+                {transcript || "…"}
+              </p>
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
       {/* Delivery feedback */}
       {analysis && (
@@ -536,11 +563,20 @@ export default function GuidedSession({
   const [emotions,     setEmotions]     = useState<Record<number, EmotionData>>({})
   const [lineEmotions, setLineEmotions] = useState<Record<number, (LineEmotion | null)[]>>({})
 
-  // Voice analysis
   const [voiceAvailable, setVoiceAvailable] = useState<boolean | null>(null)
   const [calibrated,     setCalibrated]     = useState(false)
   const [baseline,       setBaseline]       = useState<Baseline | null>(null)
   const [analyses,       setAnalyses]       = useState<Record<number, LineAnalysis>>({})
+
+  const [faceEnabled,  setFaceEnabled]  = useState(true)
+  const [faceResults,  setFaceResults]  = useState<Record<number, FaceAnalysisResult | null>>({})
+  const faceVideoElRef = useRef<HTMLVideoElement | null>(null)
+  const faceAnalyzer   = useFaceAnalyzer()
+  const faceResultRef  = useRef<FaceAnalysisResult | null>(null)
+
+  const handleVideoRef = useCallback((el: HTMLVideoElement | null) => {
+    faceVideoElRef.current = el
+  }, [])
 
   const recognitionRef        = useRef<any>(null)
   const loadedLineBlocksRef   = useRef<Set<number>>(new Set())
@@ -671,6 +707,7 @@ export default function GuidedSession({
       target:     target?.all ?? { neutral: 1 },
       voice:      heard,
       baseline:   effectiveBaseline,
+      face:       faceResultRef.current,
     })
     setAnalyses((prev) => ({ ...prev, [index]: { status: "done", result, error } }))
   }, [blocks, baseline, voiceAvailable])
@@ -719,14 +756,18 @@ export default function GuidedSession({
     setRecorded(false)
     setTranscript("")
     setAnalyses((prev) => { const next = { ...prev }; delete next[blockIndex]; return next })
-  }, [recorder, blockIndex])
+
+    faceResultRef.current = null
+    if (faceEnabled && faceVideoElRef.current) {
+      faceAnalyzer.start(faceVideoElRef.current).catch(() => {})
+    }
+  }, [recorder, blockIndex, faceEnabled, faceAnalyzer])
 
   const stopRecording = useCallback(async () => {
     if (!recordingActiveRef.current || finishingRef.current) return
     finishingRef.current = true
     recordingActiveRef.current = false
 
-    // Let speech recognition deliver its final words before scoring the transcript
     const recognition = recognitionRef.current
     const recognitionDone = new Promise<void>((resolve) => {
       if (!recognition) return resolve()
@@ -738,14 +779,23 @@ export default function GuidedSession({
     const wav = await recorder.stop()
     setIsRecording(false)
     setRecorded(true)
+
+    if (faceEnabled && faceAnalyzer.isActive) {
+      const fr = faceAnalyzer.stopAndAnalyze()
+      faceResultRef.current = fr
+      setFaceResults((prev) => ({ ...prev, [blockIndex]: fr }))
+    }
+
     analyseTake(blockIndex, wav, recognitionDone)
-  }, [recorder, analyseTake, blockIndex])
+  }, [recorder, analyseTake, blockIndex, faceEnabled, faceAnalyzer])
   stopRecordingRef.current = stopRecording
 
   const retryLine = useCallback(() => {
     setAnalyses((prev) => { const next = { ...prev }; delete next[blockIndex]; return next })
+    setFaceResults((prev) => { const next = { ...prev }; delete next[blockIndex]; return next })
     setRecorded(false)
     setTranscript("")
+    faceResultRef.current = null
   }, [blockIndex])
 
   const restart = useCallback(() => {
@@ -755,6 +805,8 @@ export default function GuidedSession({
     setRecorded(false)
     setLineEmotions({})
     setAnalyses({})
+    setFaceResults({})
+    faceResultRef.current = null
     loadedLineBlocksRef.current.clear()
   }, [])
 
@@ -801,7 +853,7 @@ export default function GuidedSession({
   }
 
   return (
-    <div className="space-y-6 max-w-2xl mx-auto">
+    <div className="space-y-6 max-w-4xl mx-auto">
       <ProgressBar current={blockIndex + 1} total={blocks.length} />
 
       {currentBlock?.type === "context" && (
@@ -825,6 +877,11 @@ export default function GuidedSession({
           micLevel={recorder.level}
           micError={recorder.error}
           analysis={analyses[blockIndex]}
+          faceAnalyzer={faceAnalyzer}
+          facePanelVideoRef={handleVideoRef}
+          faceEnabled={faceEnabled}
+          onToggleFace={() => setFaceEnabled((v) => !v)}
+          faceResult={faceResults[blockIndex] ?? null}
           onStartRecording={startRecording}
           onStopRecording={stopRecording}
           onRetry={retryLine}

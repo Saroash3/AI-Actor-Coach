@@ -255,8 +255,15 @@ export interface VoiceAnalysis {
   prosody:  Prosody
 }
 
+export interface FaceAnalysis {
+  emotions:        EmotionMap
+  dominantEmotion: string
+  confidence:      number
+  frameCount:      number
+}
+
 export interface Tip {
-  kind: "emotion" | "voice" | "words" | "praise"
+  kind: "emotion" | "voice" | "words" | "praise" | "face"
   text: string
 }
 
@@ -272,16 +279,20 @@ export interface LineResult {
   wordsPerSec: number | null
   emotion:     number | null
   voice:       number | null
-  /** voice pattern was judged against an estimated (not calibrated) baseline */
   voiceEstimated: boolean
   accuracy:    number
   total:       number
   features:    FeatureResult[]
   accuracyDetail: ReturnType<typeof scoreLineAccuracy>
   tips:        Tip[]
+  faceEmotions:   EmotionMap | null
+  faceTop:        string | null
+  faceScore:      number | null
+  faceConfidence: number | null
 }
 
-const WEIGHTS = { emotion: 0.5, voice: 0.3, accuracy: 0.2 }
+const weights = { emotion: 0.5, voice: 0.3, accuracy: 0.2 }
+const weightsWithFace = { emotion: 0.4, voice: 0.24, accuracy: 0.16, face: 0.2 }
 
 const FEATURE_ADVICE: Record<FeatureKey, Record<Direction, string>> = {
   pitch:      { 1: "Let your pitch rise higher", [-1]: "Bring your pitch down lower", 0: "Keep your pitch at your natural level" },
@@ -298,6 +309,7 @@ export function scoreLine(input: {
   target:     EmotionMap
   voice:      VoiceAnalysis | null
   baseline:   Baseline | null
+  face?:      FaceAnalysis | null
 }): LineResult {
   const targetTop = topEmotion(input.target)
   const accuracyDetail = scoreLineAccuracy(input.scriptText, input.transcript)
@@ -309,16 +321,24 @@ export function scoreLine(input: {
     ? scoreVoicePattern(targetTop, input.voice.prosody, wordsPerSec, input.baseline)
     : null
 
-  const parts: [number, number][] = [[accuracyDetail.score, WEIGHTS.accuracy]]
-  if (emotionResult) parts.push([emotionResult.score, WEIGHTS.emotion])
-  if (voiceResult?.score != null) parts.push([voiceResult.score, WEIGHTS.voice])
-  const weightSum = parts.reduce((s, [, w]) => s + w, 0)
-  const total = Math.round(parts.reduce((s, [v, w]) => s + v * w, 0) / weightSum)
+  const faceResult = (input.face && input.face.frameCount > 0)
+    ? scoreEmotionMatch(input.target, input.face.emotions)
+    : null
 
-  // Tips: the most useful 3, most important first
+  const w = faceResult ? weightsWithFace : weights
+  const parts: [number, number][] = [[accuracyDetail.score, w.accuracy]]
+  if (emotionResult) parts.push([emotionResult.score, w.emotion])
+  if (voiceResult?.score != null) parts.push([voiceResult.score, w.voice])
+  if (faceResult) parts.push([faceResult.score, (w as typeof weightsWithFace).face])
+  const weightSum = parts.reduce((s, [, wt]) => s + wt, 0)
+  const total = Math.round(parts.reduce((s, [v, wt]) => s + v * wt, 0) / weightSum)
+
   const tips: Tip[] = []
   if (emotionResult && emotionResult.achievedTop !== targetTop) {
-    tips.push({ kind: "emotion", text: `It came across as ${emotionResult.achievedTop}; the line calls for ${targetTop}.` })
+    tips.push({ kind: "emotion", text: `Your voice came across as ${emotionResult.achievedTop}; the line calls for ${targetTop}.` })
+  }
+  if (faceResult && faceResult.achievedTop !== targetTop) {
+    tips.push({ kind: "face", text: `Your face showed ${faceResult.achievedTop}; try to express ${targetTop} in your expression too.` })
   }
   for (const f of [...(voiceResult?.features ?? [])].sort((a, b) => a.score - b.score)) {
     if (f.score < 0.5) tips.push({ kind: "voice", text: `${FEATURE_ADVICE[f.key][f.needed]}.` })
@@ -327,26 +347,30 @@ export function scoreLine(input: {
   if (accuracyDetail.score < 90 && dropped.length) {
     tips.push({ kind: "words", text: `Check your lines: you missed or changed "${dropped.slice(0, 3).join('", "')}".` })
   }
-  if (tips.length === 0) tips.push({ kind: "praise", text: `Strong delivery: the ${targetTop} came through clearly.` })
+  if (tips.length === 0) tips.push({ kind: "praise", text: `Strong delivery: the ${targetTop} came through clearly${faceResult ? " in both voice and face" : ""}.` })
 
   return {
-    speaker:     input.speaker,
-    scriptText:  input.scriptText,
-    transcript:  input.transcript,
-    target:      normalize(input.target),
+    speaker:        input.speaker,
+    scriptText:     input.scriptText,
+    transcript:     input.transcript,
+    target:         normalize(input.target),
     targetTop,
-    achieved:    input.voice ? normalize(input.voice.emotions) : null,
-    achievedTop: emotionResult?.achievedTop ?? null,
-    prosody:     input.voice?.prosody ?? null,
+    achieved:       input.voice ? normalize(input.voice.emotions) : null,
+    achievedTop:    emotionResult?.achievedTop ?? null,
+    prosody:        input.voice?.prosody ?? null,
     wordsPerSec,
-    emotion:     emotionResult?.score ?? null,
-    voice:       voiceResult?.score ?? null,
+    emotion:        emotionResult?.score ?? null,
+    voice:          voiceResult?.score ?? null,
     voiceEstimated: Boolean(voiceResult && input.baseline?.estimated),
-    accuracy:    accuracyDetail.score,
+    accuracy:       accuracyDetail.score,
     total,
-    features:    voiceResult?.features ?? [],
+    features:       voiceResult?.features ?? [],
     accuracyDetail,
-    tips:        tips.slice(0, 3),
+    tips:           tips.slice(0, 3),
+    faceEmotions:   input.face ? normalize(input.face.emotions) : null,
+    faceTop:        faceResult?.achievedTop ?? null,
+    faceScore:      faceResult?.score ?? null,
+    faceConfidence: input.face?.confidence ?? null,
   }
 }
 
