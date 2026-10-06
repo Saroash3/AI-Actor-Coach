@@ -9,7 +9,7 @@ import {
 } from "lucide-react"
 import { analyzeVoice, useVoiceRecorder, type VoiceAnalysisResult } from "@/lib/use-voice-recorder"
 import { useFaceAnalyzer, type FaceAnalysisResult } from "@/lib/use-face-analyzer"
-import { countWords, estimateBaseline, scoreLine, type Baseline, type LineResult, type Prosody } from "@/lib/performance-scoring"
+import { countWords, estimateBaseline, lineCoverage, scoreLine, type Baseline, type LineResult, type Prosody } from "@/lib/performance-scoring"
 import { LineResultCard, type AnalysisStatus } from "./line-result-card"
 import { SceneReport } from "./scene-report"
 import { Calibration, MicLevel } from "./calibration"
@@ -360,7 +360,7 @@ function SpeechBlockUI({ block, emotionData, lineEmotionList, isLast, isRecordin
           <div className="space-y-3">
             {isRecording && (
               <div className="flex items-center justify-between p-3 rounded-xl bg-black/20 border border-white/5">
-                <span className="text-xs text-white/50">Recording · stops automatically when you pause</span>
+                <span className="text-xs text-white/50">Recording · stops automatically once you finish the line</span>
                 <MicLevel level={micLevel} />
               </div>
             )}
@@ -713,7 +713,22 @@ export default function GuidedSession({
   }, [blocks, baseline, voiceAvailable])
 
   const stopRecordingRef = useRef<() => void>(() => {})
-  const recorder = useVoiceRecorder({ onSilence: () => stopRecordingRef.current(), silenceMs: 2500 })
+  const lastWordsAtRef   = useRef(0) // when speech recognition last heard new words
+  // Auto-stop only when the mic has gone quiet AND recognition has stopped hearing words AND most of
+  // the line has been said; otherwise a long pause (longSilenceMs) is needed, or the Stop button
+  const takeLooksFinished = useCallback(() => {
+    if (performance.now() - lastWordsAtRef.current < 1500) return false
+    const block = blocks[blockIndex]
+    if (block?.type !== "speech") return true
+    return lineCoverage(block.lines.join(" "), transcriptRef.current) >= 0.7
+  }, [blocks, blockIndex])
+  const recorder = useVoiceRecorder({
+    onSilence:     () => stopRecordingRef.current(),
+    silenceMs:     2500,
+    longSilenceMs: 7000,
+    minSpeechMs:   600,
+    isComplete:    takeLooksFinished,
+  })
 
   const startRecording = useCallback(async () => {
     const SR = (globalThis as any).SpeechRecognition || (globalThis as any).webkitSpeechRecognition
@@ -739,6 +754,7 @@ export default function GuidedSession({
     recognition.lang           = "en-US"
     recognition.onresult = (event: any) => {
       const text = `${transcriptPrefixRef.current} ${parseRecognitionResult(event)}`.trim()
+      if (text !== transcriptRef.current) lastWordsAtRef.current = performance.now()
       transcriptRef.current = text
       setTranscript(text)
     }
@@ -781,7 +797,7 @@ export default function GuidedSession({
     setRecorded(true)
 
     if (faceEnabled && faceAnalyzer.isActive) {
-      const fr = faceAnalyzer.stopAndAnalyze()
+      const fr = faceAnalyzer.stopAndAnalyze(emotionsRef.current[blockIndex]?.top)
       faceResultRef.current = fr
       setFaceResults((prev) => ({ ...prev, [blockIndex]: fr }))
     }

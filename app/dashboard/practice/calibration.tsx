@@ -76,7 +76,12 @@ export function Calibration({ voiceAvailable, onDone }: Readonly<{
     }
   }
 
-  const recorder = useVoiceRecorder({ onSilence: () => { if (status === "recording") finish() }, silenceMs: 1800 })
+  // The sentence takes ~5 s to read, so a pause before 2 s of real speech is mid-sentence, not the end
+  const recorder = useVoiceRecorder({
+    onSilence:   () => { if (status === "recording") finish() },
+    silenceMs:   2000,
+    minSpeechMs: 2000,
+  })
 
   const start = async () => {
     setError(null)

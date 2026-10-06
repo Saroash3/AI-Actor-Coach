@@ -72,6 +72,20 @@ function normalize(map: EmotionMap): EmotionMap {
 
 export const countWords = (text: string) => normalizeWords(text).length
 
+/** Share of the script's words (0–1) that appear in the transcript so far: has the line been said? */
+export function lineCoverage(scriptText: string, transcript: string): number {
+  const s = normalizeWords(scriptText)
+  if (s.length === 0) return 1
+  const heard = normalizeWords(transcript)
+  const used = new Array(heard.length).fill(false)
+  let found = 0
+  for (const word of s) {
+    const i = heard.findIndex((h, k) => !used[k] && sameWord(word, h))
+    if (i >= 0) { used[i] = true; found++ }
+  }
+  return found / s.length
+}
+
 // ── ① Emotion match ───────────────────────────────────────────────────────────
 
 /**

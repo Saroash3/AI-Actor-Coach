@@ -77,7 +77,25 @@ export async function analyzeVoice(wav: Blob): Promise<VoiceAnalysisResult> {
   throw new Error(data.error ?? "Voice analysis failed.")
 }
 
-export function useVoiceRecorder({ onSilence, silenceMs = 2200 }: { onSilence?: () => void; silenceMs?: number } = {}) {
+export interface VoiceRecorderOptions {
+  onSilence?: () => void
+  /** Quiet needed to stop once the take looks finished */
+  silenceMs?: number
+  /** Quiet needed to stop while the take still looks unfinished (a long pause mid-line) */
+  longSilenceMs?: number
+  /** Real speech (not a click or breath) needed before a normal pause can end the take */
+  minSpeechMs?: number
+  /** Extra check from the caller, e.g. "has most of the line been said?" */
+  isComplete?: () => boolean
+}
+
+export function useVoiceRecorder({
+  onSilence,
+  silenceMs = 2200,
+  longSilenceMs = 7000,
+  minSpeechMs = 500,
+  isComplete,
+}: VoiceRecorderOptions = {}) {
   const [isRecording, setIsRecording] = useState(false)
   const [level, setLevel] = useState(0)
   const [error, setError] = useState<string | null>(null)
@@ -87,6 +105,8 @@ export function useVoiceRecorder({ onSilence, silenceMs = 2200 }: { onSilence?: 
   const chunksRef = useRef<Float32Array[]>([])
   const onSilenceRef = useRef(onSilence)
   onSilenceRef.current = onSilence
+  const isCompleteRef = useRef(isComplete)
+  isCompleteRef.current = isComplete
 
   const release = useCallback(async () => {
     streamRef.current?.getTracks().forEach((t) => t.stop())
@@ -118,11 +138,13 @@ export function useVoiceRecorder({ onSilence, silenceMs = 2200 }: { onSilence?: 
       const tap = new AudioWorkletNode(ctx, "tap")
       source.connect(tap)
 
-      // Silence detection: learn the room's noise floor, then watch for speech followed by quiet
+      // Silence detection. The noise floor follows the quietest moments all take long (so speaking
+      // straight away can't inflate it), speech must last a while to count (a click or breath
+      // doesn't), and a lower "still talking" threshold keeps soft words from reading as silence.
       const startedAt = performance.now()
-      let floor = 0
-      let floorSamples = 0
-      let heardSpeech = false
+      let floor = -1
+      let speechMs = 0
+      let lastChunkAt = startedAt
       let lastLoudAt = startedAt
       let silenceReported = false
       let lastLevelUpdate = 0
@@ -132,16 +154,27 @@ export function useVoiceRecorder({ onSilence, silenceMs = 2200 }: { onSilence?: 
         chunksRef.current.push(data)
 
         const now = performance.now()
+        const chunkMs = now - lastChunkAt
+        lastChunkAt = now
         const r = rms(data)
-        if (now - startedAt < 400) {
-          floor = (floor * floorSamples + r) / ++floorSamples
-          return
-        }
-        const threshold = Math.max(floor * 2.5, 0.012)
-        if (r > threshold) { heardSpeech = true; lastLoudAt = now }
-        if (heardSpeech && !silenceReported && now - lastLoudAt > silenceMs) {
-          silenceReported = true
-          onSilenceRef.current?.()
+
+        // Falls quickly to quieter levels; rises slowly and only from quiet chunks (never from speech);
+        // capped so speaking right at the start can't blind it
+        if (floor < 0) floor = Math.min(r, 0.01)
+        const speechThreshold = Math.max(floor * 3, 0.015)
+        const talkingThreshold = Math.max(floor * 1.8, 0.008)
+        if (r < floor) floor = floor * 0.7 + r * 0.3
+        else if (r < talkingThreshold) floor = Math.min(0.01, floor * 0.98 + r * 0.02)
+        if (r > speechThreshold) speechMs += chunkMs
+        if (r > talkingThreshold) lastLoudAt = now
+
+        const silentFor = now - lastLoudAt
+        if (!silenceReported && speechMs >= minSpeechMs && silentFor > silenceMs) {
+          const finished = isCompleteRef.current ? isCompleteRef.current() : true
+          if (finished || silentFor > longSilenceMs) {
+            silenceReported = true
+            onSilenceRef.current?.()
+          }
         }
         if (now - lastLevelUpdate > 60) {
           lastLevelUpdate = now
@@ -160,7 +193,7 @@ export function useVoiceRecorder({ onSilence, silenceMs = 2200 }: { onSilence?: 
         : "Couldn't start the microphone.")
       throw err
     }
-  }, [release, silenceMs])
+  }, [release, silenceMs, longSilenceMs, minSpeechMs])
 
   /** Stops recording and returns the take as a 16 kHz WAV (null if nothing was captured) */
   const stop = useCallback(async (): Promise<Blob | null> => {
