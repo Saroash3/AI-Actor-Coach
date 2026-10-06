@@ -25,16 +25,24 @@ const std = [0.229, 0.224, 0.225]
 const peakShare = 0.3     // emotional lines are judged on their most expressive 30% of frames
 const liveWindow = 5      // live bars follow the last few frames, so they react to expression changes
 
+// onnxruntime-web is loaded straight from /ort/ instead of being bundled: Next's production minifier
+// can't parse its ES-module build (import.meta), so `next build` fails if webpack sees it.
+// public/ort/ holds ort.wasm.min.mjs + its wasm files, copied from node_modules/onnxruntime-web/dist (v1.30.0).
+const ortUrl = "/ort/ort.wasm.min.mjs"
+
 let modelsLoading: Promise<void> | null = null
 let session: import("onnxruntime-web").InferenceSession | null = null
 let ortModule: typeof import("onnxruntime-web") | null = null
 
 function loadModels(): Promise<void> {
   modelsLoading ??= (async () => {
-    const [faceapi, ort] = await Promise.all([import("@vladmandic/face-api"), import("onnxruntime-web/wasm")])
+    const [faceapi, ort] = await Promise.all([
+      import("@vladmandic/face-api"),
+      import(/* webpackIgnore: true */ ortUrl) as Promise<typeof import("onnxruntime-web")>,
+    ])
     ort.env.wasm.wasmPaths = "/ort/"
     ort.env.wasm.numThreads = 1 // threads need cross-origin isolation, which the site doesn't enable
-    ortModule = ort as typeof import("onnxruntime-web")
+    ortModule = ort
     const [, s] = await Promise.all([
       faceapi.nets.tinyFaceDetector.loadFromUri("/face-models"),
       ort.InferenceSession.create("/face-models/hsemotion_enet_b2_7.onnx", { executionProviders: ["wasm"] }),
