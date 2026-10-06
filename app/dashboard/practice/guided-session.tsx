@@ -14,6 +14,10 @@ import { LineResultCard, type AnalysisStatus } from "./line-result-card"
 import { SceneReport } from "./scene-report"
 import { Calibration, MicLevel } from "./calibration"
 import { FacePanel } from "./face-panel"
+import {
+  useBodyAnalyzer,
+  type BodyAnalysisResult,
+} from "@/lib/use-body-analyzer"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -253,7 +257,7 @@ function ContextBlockUI({ block, ttsPlaying, isLast, onNext }: Readonly<{
 // ─── Speech Block UI ──────────────────────────────────────────────────────────
 
 function SpeechBlockUI({ block, emotionData, lineEmotionList, isLast, isRecording, recorded, transcript, micLevel, micError, analysis,
-  faceAnalyzer, facePanelVideoRef, faceEnabled, onToggleFace, faceResult,
+  faceAnalyzer, facePanelVideoRef, faceEnabled, onToggleFace, faceResult, bodyResult,
   onStartRecording, onStopRecording, onRetry, onNext }: Readonly<{
   block:            SpeechBlock
   emotionData:      EmotionData | undefined
@@ -270,6 +274,7 @@ function SpeechBlockUI({ block, emotionData, lineEmotionList, isLast, isRecordin
   faceEnabled:      boolean
   onToggleFace:     () => void
   faceResult:       FaceAnalysisResult | null
+  bodyResult: BodyAnalysisResult | null
   onStartRecording: () => void
   onStopRecording:  () => void
   onRetry:          () => void
@@ -354,6 +359,31 @@ function SpeechBlockUI({ block, emotionData, lineEmotionList, isLast, isRecordin
           enabled={faceEnabled}
           onToggle={onToggleFace}
         />
+        {bodyResult && (
+  <div className="rounded-lg border p-4">
+    <h3 className="font-semibold mb-3">Body Language Analysis</h3>
+
+    <div className="grid grid-cols-2 gap-2 text-sm">
+      <div>Posture: <strong>{bodyResult.posture}</strong></div>
+      <div>Shoulders: <strong>{bodyResult.shoulders}</strong></div>
+      <div>Head: <strong>{bodyResult.head}</strong></div>
+      <div>Body: <strong>{bodyResult.body}</strong></div>
+      <div>Posture Type: <strong>{bodyResult.postureType}</strong></div>
+      <div>Arms: <strong>{bodyResult.arms}</strong></div>
+      <div>Hands: <strong>{bodyResult.hands}</strong></div>
+      <div>Body Score: <strong>{bodyResult.bodyLanguageScore}/100</strong></div>
+      <div className="mt-4">
+    <h4 className="font-medium mb-2">Coaching Feedback</h4>
+
+    <ul className="list-disc pl-5 space-y-1 text-sm">
+      {bodyResult.feedback.map((item, index) => (
+        <li key={index}>{item}</li>
+      ))}
+    </ul>
+  </div>
+    </div>
+  </div>
+)}
 
         {/* Recording controls (right column) */}
         <div className="space-y-3 flex flex-col justify-between">
@@ -570,8 +600,10 @@ export default function GuidedSession({
 
   const [faceEnabled,  setFaceEnabled]  = useState(true)
   const [faceResults,  setFaceResults]  = useState<Record<number, FaceAnalysisResult | null>>({})
+  const [bodyResults, setBodyResults] = useState<Record<number, BodyAnalysisResult | null>>({})
   const faceVideoElRef = useRef<HTMLVideoElement | null>(null)
   const faceAnalyzer   = useFaceAnalyzer()
+  const bodyAnalyzer = useBodyAnalyzer()
   const faceResultRef  = useRef<FaceAnalysisResult | null>(null)
 
   const handleVideoRef = useCallback((el: HTMLVideoElement | null) => {
@@ -777,7 +809,10 @@ export default function GuidedSession({
     if (faceEnabled && faceVideoElRef.current) {
       faceAnalyzer.start(faceVideoElRef.current).catch(() => {})
     }
-  }, [recorder, blockIndex, faceEnabled, faceAnalyzer])
+    if (faceEnabled && faceVideoElRef.current) {
+      bodyAnalyzer.start(faceVideoElRef.current).catch(() => {})
+    }
+  }, [recorder, blockIndex, faceEnabled, faceAnalyzer, bodyAnalyzer])
 
   const stopRecording = useCallback(async () => {
     if (!recordingActiveRef.current || finishingRef.current) return
@@ -801,14 +836,20 @@ export default function GuidedSession({
       faceResultRef.current = fr
       setFaceResults((prev) => ({ ...prev, [blockIndex]: fr }))
     }
+    if (bodyAnalyzer.isActive) {
+      const br = bodyAnalyzer.result
+      setBodyResults((prev) => ({ ...prev, [blockIndex]: br }))
+      bodyAnalyzer.stop()
+    }
 
     analyseTake(blockIndex, wav, recognitionDone)
-  }, [recorder, analyseTake, blockIndex, faceEnabled, faceAnalyzer])
+  }, [recorder, analyseTake, blockIndex, faceEnabled, faceAnalyzer, bodyAnalyzer])
   stopRecordingRef.current = stopRecording
 
   const retryLine = useCallback(() => {
     setAnalyses((prev) => { const next = { ...prev }; delete next[blockIndex]; return next })
     setFaceResults((prev) => { const next = { ...prev }; delete next[blockIndex]; return next })
+    setBodyResults((prev) => { const next = { ...prev }; delete next[blockIndex]; return next })
     setRecorded(false)
     setTranscript("")
     faceResultRef.current = null
@@ -898,6 +939,7 @@ export default function GuidedSession({
           faceEnabled={faceEnabled}
           onToggleFace={() => setFaceEnabled((v) => !v)}
           faceResult={faceResults[blockIndex] ?? null}
+          bodyResult={bodyResults[blockIndex] ?? null}
           onStartRecording={startRecording}
           onStopRecording={stopRecording}
           onRetry={retryLine}
