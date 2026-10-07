@@ -4,6 +4,8 @@ import { Loader2, RotateCcw, ArrowUp, ArrowDown, Minus, Check, X, Lightbulb, Ale
 import { Button } from "@/components/ui/button"
 import { FEATURE_LABELS, type LineResult } from "@/lib/performance-scoring"
 import type { BodyAnalysisResult } from "@/lib/use-body-analyzer"
+import type { FaceAnalysisResult } from "@/lib/use-face-analyzer"
+import { FaceResultSection } from "./face-panel"
 
 export type AnalysisStatus = "analyzing" | "done" | "error"
 
@@ -140,12 +142,13 @@ function BodySection({ body }: Readonly<{ body: BodyAnalysisResult }>) {
   )
 }
 
-export function LineResultCard({ status, result, error, body, onRetry }: Readonly<{
-  status:  AnalysisStatus
-  result:  LineResult | null
-  error:   string | null
-  body?:   BodyAnalysisResult | null // missing when the camera was off or no body was seen
-  onRetry: () => void
+export function LineResultCard({ status, result, error, body, faceResult, onRetry }: Readonly<{
+  status:      AnalysisStatus
+  result:      LineResult | null
+  error:       string | null
+  body?:       BodyAnalysisResult | null // missing when the camera was off or no body was seen
+  faceResult?: FaceAnalysisResult | null // missing when the camera was off or no face was seen
+  onRetry:     () => void
 }>) {
   if (status === "analyzing") {
     return (
@@ -212,8 +215,22 @@ export function LineResultCard({ status, result, error, body, onRetry }: Readonl
         </p>
       )}
 
-      {/* Target vs you, emotion by emotion */}
+      {/* Target vs you, emotion by emotion (voice scores) */}
       {result.achieved && <EmotionBreakdown target={result.target} voice={result.achieved} score={result.emotion} />}
+
+      {/* Facial scores (moved below where voice scores are) */}
+      {(faceResult || (result.faceEmotions && result.faceTop)) && (
+        <FaceResultSection
+          result={
+            faceResult ?? {
+              dominantEmotion: result.faceTop ?? "neutral",
+              emotions: result.faceEmotions ?? {},
+              confidence: result.faceConfidence ?? 0,
+              frameCount: 0,
+            }
+          }
+        />
+      )}
 
       {/* Posture and body language over the take (only when the camera was on) */}
       {body && <BodySection body={body} />}
