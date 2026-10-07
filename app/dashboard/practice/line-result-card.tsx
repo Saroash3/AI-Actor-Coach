@@ -1,8 +1,9 @@
 "use client"
 
-import { Loader2, RotateCcw, ArrowUp, ArrowDown, Minus, Check, X, Lightbulb, AlertTriangle, Camera } from "lucide-react"
+import { Loader2, RotateCcw, ArrowUp, ArrowDown, Minus, Check, X, Lightbulb, AlertTriangle, Camera, PersonStanding } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { FEATURE_LABELS, type LineResult } from "@/lib/performance-scoring"
+import type { BodyAnalysisResult } from "@/lib/use-body-analyzer"
 
 export type AnalysisStatus = "analyzing" | "done" | "error"
 
@@ -62,10 +63,96 @@ function ComponentBar({ label, value, hint, tag, missing }: Readonly<{
 
 const pct = (x: number | undefined) => `${Math.round((x ?? 0) * 100)}%`
 
-export function LineResultCard({ status, result, error, onRetry }: Readonly<{
+/** The line's emotion mix (from the text) next to the mix heard in the voice, one row per emotion */
+function EmotionBreakdown({ target, voice, score }: Readonly<{
+  target: Record<string, number>
+  voice:  Record<string, number>
+  score:  number | null
+}>) {
+  const rows = Object.keys(target).sort((a, b) => (target[b] + voice[b]) - (target[a] + voice[a]))
+  const top = (m: Record<string, number>) => rows.reduce((best, e) => (m[e] > m[best] ? e : best), rows[0])
+  const Bar = ({ emotion, value, className }: Readonly<{ emotion: string; value: number; className: string }>) => (
+    <div className="flex items-center gap-1.5">
+      <span className="w-[4.25rem] shrink-0 capitalize text-white/65">{emotion}</span>
+      <div className="flex-1 h-1.5 rounded-full bg-white/5 overflow-hidden">
+        <div className={`h-full rounded-full transition-all duration-700 ${className}`} style={{ width: `${Math.max(value * 100, 1.5)}%` }} />
+      </div>
+      <span className="w-8 text-right tabular-nums text-[10px] text-white/60">{pct(value)}</span>
+    </div>
+  )
+  return (
+    <div className="rounded-lg bg-white/5 border border-white/10 p-3 text-xs">
+      <div className="grid grid-cols-2 gap-x-6 mb-1.5 text-[10px] uppercase tracking-wider text-white/40">
+        <span>Line needs <b className="text-white/70 normal-case tracking-normal capitalize">· {top(target)}</b></span>
+        <span>Your voice <b className="text-white/70 normal-case tracking-normal capitalize">· {top(voice)}</b></span>
+      </div>
+      <div className="space-y-1">
+        {rows.map((e) => (
+          <div key={e} className="grid grid-cols-2 gap-x-6 items-center">
+            <Bar emotion={e} value={target[e] ?? 0} className="bg-white/45" />
+            <Bar emotion={e} value={voice[e] ?? 0} className="bg-spot-300" />
+          </div>
+        ))}
+      </div>
+      {score != null && (
+        <p className="mt-2 text-[10px] text-white/40">
+          Emotion match {score}/100: how closely your voice&apos;s emotion mix follows the mix the line needs.
+        </p>
+      )}
+    </div>
+  )
+}
+
+/** Posture and body language over the whole take. null = camera was on but no body was seen */
+function BodySection({ body }: Readonly<{ body: BodyAnalysisResult | null }>) {
+  if (!body) {
+    return (
+      <div className="rounded-lg bg-white/5 border border-white/10 p-3 text-xs flex items-start gap-2 text-white/60">
+        <PersonStanding className="w-4 h-4 shrink-0 text-velvet-300" />
+        No body detected during this line. Step back so your shoulders, arms and hips are in view of the camera.
+      </div>
+    )
+  }
+  // Only what the camera saw: parts that were out of frame are left out, not flagged
+  const traits = ([
+    ["Shoulders", body.shoulders], ["Head", body.head], ["Lean", body.body],
+    ["Stance", body.postureType], ["Arms", body.arms], ["Hands", body.hands],
+  ] as [string, string][]).filter(([, value]) => value !== "Not in view")
+  return (
+    <div className="rounded-lg bg-white/5 border border-white/10 p-3 text-xs space-y-3">
+      <div className="flex items-center gap-2 text-[10px] uppercase tracking-wider text-white/40">
+        <PersonStanding className="w-3.5 h-3.5 text-velvet-300" /> Body language
+        <span className="normal-case tracking-normal text-white/30">· {body.frameCount} moments analysed</span>
+      </div>
+      <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+        <ComponentBar label={`Posture · ${body.posture}`} value={body.score} hint="Shoulders level, head straight, body upright" />
+        {body.bodyLanguageScore != null && (
+          <ComponentBar label="Body language" value={body.bodyLanguageScore} hint="Open stance, expressive arms, head centred over the body" />
+        )}
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {traits.map(([label, value]) => (
+          <span key={label} className="px-2 py-1 rounded-md border border-white/10 bg-white/5 text-[11px] text-white/70">
+            {label}: <span className="text-white">{value.toLowerCase()}</span>
+          </span>
+        ))}
+      </div>
+      <ul className="space-y-1">
+        {body.feedback.slice(0, 3).map((tip) => (
+          <li key={tip} className="flex items-start gap-2 text-sm text-white/75">
+            <PersonStanding className="w-4 h-4 shrink-0 mt-0.5 text-velvet-300" /> {tip}
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+export function LineResultCard({ status, result, error, body, onRetry }: Readonly<{
   status:  AnalysisStatus
   result:  LineResult | null
   error:   string | null
+  body?:   BodyAnalysisResult | null // undefined when the camera was off
   onRetry: () => void
 }>) {
   if (status === "analyzing") {
@@ -111,26 +198,11 @@ export function LineResultCard({ status, result, error, onRetry }: Readonly<{
         </p>
       )}
 
-      {/* Target vs you */}
-      {result.achieved && (
-        <div className="grid grid-cols-2 gap-2 text-xs">
-          <div className="p-2.5 rounded-lg bg-white/5 border border-white/10">
-            <p className="text-white/40 mb-0.5">Target</p>
-            <p className="text-white font-semibold capitalize">{result.targetTop} <span className="text-white/50 font-normal">{pct(result.target[result.targetTop])}</span></p>
-          </div>
-          <div className="p-2.5 rounded-lg bg-white/5 border border-white/10">
-            <p className="text-white/40 mb-0.5">Your voice</p>
-            <p className="text-white font-semibold capitalize">
-              {result.achievedTop}{" "}
-              <span className="text-white/50 font-normal">
-                {result.achievedTop === result.targetTop
-                  ? pct(result.achieved[result.targetTop])
-                  : `· ${result.targetTop} ${pct(result.achieved[result.targetTop])}`}
-              </span>
-            </p>
-          </div>
-        </div>
-      )}
+      {/* Target vs you, emotion by emotion */}
+      {result.achieved && <EmotionBreakdown target={result.target} voice={result.achieved} score={result.emotion} />}
+
+      {/* Posture and body language over the take (only when the camera was on) */}
+      {body !== undefined && <BodySection body={body} />}
 
       {/* Voice features */}
       {result.features.length > 0 && (

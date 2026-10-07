@@ -14,6 +14,10 @@ import { LineResultCard, type AnalysisStatus } from "./line-result-card"
 import { SceneReport } from "./scene-report"
 import { Calibration, MicLevel } from "./calibration"
 import { FacePanel } from "./face-panel"
+import {
+  useBodyAnalyzer,
+  type BodyAnalysisResult,
+} from "@/lib/use-body-analyzer"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -253,7 +257,7 @@ function ContextBlockUI({ block, ttsPlaying, isLast, onNext }: Readonly<{
 // ─── Speech Block UI ──────────────────────────────────────────────────────────
 
 function SpeechBlockUI({ block, emotionData, lineEmotionList, isLast, isRecording, recorded, transcript, micLevel, micError, analysis,
-  faceAnalyzer, facePanelVideoRef, faceEnabled, onToggleFace, faceResult,
+  faceAnalyzer, facePanelVideoRef, faceEnabled, onToggleFace, faceResult, bodyResult,
   onStartRecording, onStopRecording, onRetry, onNext }: Readonly<{
   block:            SpeechBlock
   emotionData:      EmotionData | undefined
@@ -270,6 +274,7 @@ function SpeechBlockUI({ block, emotionData, lineEmotionList, isLast, isRecordin
   faceEnabled:      boolean
   onToggleFace:     () => void
   faceResult:       FaceAnalysisResult | null
+  bodyResult:       BodyAnalysisResult | null | undefined
   onStartRecording: () => void
   onStopRecording:  () => void
   onRetry:          () => void
@@ -408,7 +413,7 @@ function SpeechBlockUI({ block, emotionData, lineEmotionList, isLast, isRecordin
 
       {/* Delivery feedback */}
       {analysis && (
-        <LineResultCard status={analysis.status} result={analysis.result} error={analysis.error} onRetry={onRetry} />
+        <LineResultCard status={analysis.status} result={analysis.result} error={analysis.error} body={bodyResult} onRetry={onRetry} />
       )}
     </div>
   )
@@ -570,8 +575,10 @@ export default function GuidedSession({
 
   const [faceEnabled,  setFaceEnabled]  = useState(true)
   const [faceResults,  setFaceResults]  = useState<Record<number, FaceAnalysisResult | null>>({})
+  const [bodyResults, setBodyResults] = useState<Record<number, BodyAnalysisResult | null>>({})
   const faceVideoElRef = useRef<HTMLVideoElement | null>(null)
   const faceAnalyzer   = useFaceAnalyzer()
+  const bodyAnalyzer = useBodyAnalyzer()
   const faceResultRef  = useRef<FaceAnalysisResult | null>(null)
 
   const handleVideoRef = useCallback((el: HTMLVideoElement | null) => {
@@ -777,7 +784,10 @@ export default function GuidedSession({
     if (faceEnabled && faceVideoElRef.current) {
       faceAnalyzer.start(faceVideoElRef.current).catch(() => {})
     }
-  }, [recorder, blockIndex, faceEnabled, faceAnalyzer])
+    if (faceEnabled && faceVideoElRef.current) {
+      bodyAnalyzer.start(faceVideoElRef.current).catch(() => {})
+    }
+  }, [recorder, blockIndex, faceEnabled, faceAnalyzer, bodyAnalyzer])
 
   const stopRecording = useCallback(async () => {
     if (!recordingActiveRef.current || finishingRef.current) return
@@ -801,14 +811,20 @@ export default function GuidedSession({
       faceResultRef.current = fr
       setFaceResults((prev) => ({ ...prev, [blockIndex]: fr }))
     }
+    if (faceEnabled) {
+      // Whole take summarised (null when no body was in view)
+      const br = bodyAnalyzer.stopAndSummarize()
+      setBodyResults((prev) => ({ ...prev, [blockIndex]: br }))
+    }
 
     analyseTake(blockIndex, wav, recognitionDone)
-  }, [recorder, analyseTake, blockIndex, faceEnabled, faceAnalyzer])
+  }, [recorder, analyseTake, blockIndex, faceEnabled, faceAnalyzer, bodyAnalyzer])
   stopRecordingRef.current = stopRecording
 
   const retryLine = useCallback(() => {
     setAnalyses((prev) => { const next = { ...prev }; delete next[blockIndex]; return next })
     setFaceResults((prev) => { const next = { ...prev }; delete next[blockIndex]; return next })
+    setBodyResults((prev) => { const next = { ...prev }; delete next[blockIndex]; return next })
     setRecorded(false)
     setTranscript("")
     faceResultRef.current = null
@@ -898,6 +914,7 @@ export default function GuidedSession({
           faceEnabled={faceEnabled}
           onToggleFace={() => setFaceEnabled((v) => !v)}
           faceResult={faceResults[blockIndex] ?? null}
+          bodyResult={bodyResults[blockIndex]}
           onStartRecording={startRecording}
           onStopRecording={stopRecording}
           onRetry={retryLine}

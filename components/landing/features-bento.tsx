@@ -183,7 +183,7 @@ export function FeaturesBento() {
             <GlowCard className="h-full p-8" glow="rgba(212,67,95,0.16)">
               <div className="flex items-center gap-2 text-velvet-300"><AudioWaveform className="h-5 w-5" /><span className="eyebrow text-velvet-300/80">Emotion in your voice</span></div>
               <h3 className="mt-4 font-display text-2xl text-bone">A speech emotion model listens to your tone, not your words</h3>
-              <p className="mt-2 max-w-lg text-bone/55">A pre-trained wav2vec2 network hears anger, sadness, fear, joy, surprise, disgust or calm in the sound of your voice.</p>
+              <p className="mt-2 max-w-lg text-bone/55">A pre-trained emotion2vec network hears anger, sadness, fear, joy, surprise, disgust or calm in the sound of your voice.</p>
               <EmotionBars />
             </GlowCard>
           </StaggerItem>

@@ -17,3 +17,6 @@ scripts_json/
 
 # Voice model service — runs on the laptop (later AWS), not on Vercel
 voice_service/
+
+# Model benchmark scripts and datasets, not part of the website
+evaluation/

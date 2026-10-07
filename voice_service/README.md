@@ -2,7 +2,7 @@
 
 Analyses each recorded dialogue for the practice session:
 
-- **Emotion in the voice**: [`ehcalabres/wav2vec2-lg-xlsr-en-speech-emotion-recognition`](https://huggingface.co/ehcalabres/wav2vec2-lg-xlsr-en-speech-emotion-recognition), a pre-trained wav2vec2 speech emotion model (8 labels, mapped to the app's 7 emotions; calm counts as neutral).
+- **Emotion in the voice**: [`emotion2vec/emotion2vec_plus_large`](https://huggingface.co/emotion2vec/emotion2vec_plus_large), a pre-trained speech emotion model (~300M parameters) run with [FunASR](https://github.com/modelscope/FunASR). Its 9 labels are mapped to the app's 7 emotions ("other" and "unknown" are dropped). It was chosen over the previous wav2vec2 model in a benchmark on speakers neither model had heard: 30% vs 22% balanced accuracy on MELD (TV dialogue) and 85% vs 40% on CREMA-D (acted speech). Cite: Ma et al., *emotion2vec*, ACL 2024; FunASR model licence (free use with attribution).
 - **Prosody**: pitch, pitch range, loudness, pauses and speaking time, measured with Praat (`praat-parselmouth`).
 
 The Next.js app calls it through `/api/voice/analyze` (logged-in users only); scoring happens in `lib/performance-scoring.ts`.
@@ -23,7 +23,7 @@ voice_service/.venv/Scripts/python -m pip install -r voice_service/requirements.
 npm run voice        # http://127.0.0.1:8001 (keep it running alongside `npm run dev`)
 ```
 
-The first start downloads the model (~1.3 GB) into the Hugging Face cache; later starts take a few seconds.
+The first start downloads the model (~1.2 GB) into the Hugging Face cache; later starts take a few seconds.
 
 Set `VOICE_SERVICE_URL` in `.env.local` if the service runs somewhere else (e.g. a Hugging Face Space).
 

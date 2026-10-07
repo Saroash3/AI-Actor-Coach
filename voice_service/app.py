@@ -11,29 +11,30 @@ Run:  .venv/Scripts/python -m uvicorn app:app --port 8001
 import hmac
 import io
 import os
+import threading
 import wave
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 import numpy as np
 import parselmouth
-import torch
 from fastapi import Depends, FastAPI, File, Header, HTTPException, UploadFile
-from huggingface_hub import hf_hub_download
-from safetensors.torch import load_file
-from torch import nn
-from transformers import Wav2Vec2Config, Wav2Vec2FeatureExtractor, Wav2Vec2Model
+from funasr import AutoModel
 
-MODEL_ID = "ehcalabres/wav2vec2-lg-xlsr-en-speech-emotion-recognition"
+# emotion2vec+ large (~300M params, FunASR model licence: free use with attribution).
+# Chosen over the previous ehcalabres/wav2vec2 model after a benchmark on unseen speakers:
+# balanced accuracy 30% vs 22% on MELD (TV dialogue) and 85% vs 40% on CREMA-D (acted), and it
+# almost never mistakes acted emotion for neutral (2% vs 21%). ~0.7 s per line on a laptop CPU.
+MODEL_ID = "emotion2vec/emotion2vec_plus_large"
 SAMPLE_RATE = 16_000
 MAX_SECONDS = 30
 MIN_SPEECH_SECONDS = 0.4
 
-# Model labels → the 7 emotions the app uses (calm counts as neutral)
+# Model labels ("生气/angry", …: the English part after "/") → the 7 emotions the app uses.
+# "other" and "<unk>" are dropped and the rest re-normalised.
 LABEL_MAP = {
     "angry": "anger",
-    "calm": "neutral",
-    "disgust": "disgust",
+    "disgusted": "disgust",
     "fearful": "fear",
     "happy": "joy",
     "neutral": "neutral",
@@ -41,6 +42,17 @@ LABEL_MAP = {
     "surprised": "surprise",
 }
 EMOTIONS = ["anger", "disgust", "fear", "joy", "neutral", "sadness", "surprise"]
+
+# The model is over-confident (median 98% on its top guess while right ~60% of the time), so a slightly
+# sad-sounding take showed as "100% sadness". Temperature scaling (p^(1/T), renormalised) with T fitted on
+# held-out benchmark clips (CREMA-D + MELD) makes the shown percentages match how often it is right:
+# average stated confidence 87% -> 61% vs 60% actual accuracy; calibration error 26% -> 6%.
+CALIBRATION_T = 3.25
+
+# Recordings end with the 2.5–7 s of quiet the app waits for before auto-stopping. That tail hurts the
+# model (in tests, angry clips padded with room noise dropped from 9/12 to 3/12 correct), so emotion is
+# judged on the speech only, plus a short margin.
+SPEECH_MARGIN_SECONDS = 0.15
 
 
 # ── Access key ────────────────────────────────────────────────────────────────
@@ -68,54 +80,21 @@ def require_key(x_voice_key: str = Header(default="")):
 
 
 # ── Model ─────────────────────────────────────────────────────────────────────
-# This checkpoint was trained with a custom classification head (dense → tanh →
-# output) on mean-pooled wav2vec2 features. The stock Wav2Vec2ForSequenceClassification
-# has a different head, so loading it through `pipeline()` silently replaces the
-# trained head with random weights. We rebuild the original architecture instead
-# and load the weights strictly, so any mismatch fails loudly at startup.
 
-class EmotionHead(nn.Module):
-    def __init__(self, hidden_size: int, num_labels: int):
-        super().__init__()
-        self.dense = nn.Linear(hidden_size, hidden_size)
-        self.output = nn.Linear(hidden_size, num_labels)
-
-    def forward(self, features: torch.Tensor) -> torch.Tensor:
-        return self.output(torch.tanh(self.dense(features)))
-
-
-class SpeechEmotionModel(nn.Module):
-    def __init__(self, config: Wav2Vec2Config):
-        super().__init__()
-        self.wav2vec2 = Wav2Vec2Model(config)
-        self.classifier = EmotionHead(config.hidden_size, config.num_labels)
-
-    def forward(self, input_values: torch.Tensor) -> torch.Tensor:
-        hidden = self.wav2vec2(input_values).last_hidden_state  # (batch, frames, 1024)
-        return self.classifier(hidden.mean(dim=1))               # mean pooling over time
-
-
-model: SpeechEmotionModel | None = None
-feature_extractor: Wav2Vec2FeatureExtractor | None = None
-id2label: dict[int, str] = {}
+model: AutoModel | None = None
+model_lock = threading.Lock()  # /analyze runs in a thread pool; one inference at a time
 
 
 def load_model():
-    global model, feature_extractor, id2label
-    config = Wav2Vec2Config.from_pretrained(MODEL_ID)
-    model = SpeechEmotionModel(config)
-    state = load_file(hf_hub_download(MODEL_ID, "model.safetensors"))
-    model.load_state_dict(state, strict=True)
-    model.eval()
-    feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(MODEL_ID)
-    id2label = {int(k): v for k, v in config.id2label.items()}
+    global model
+    model = AutoModel(model=MODEL_ID, hub="hf", disable_update=True)
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     if not SERVICE_KEY:
         print("WARNING: VOICE_SERVICE_KEY is not set; /analyze is open to anyone who can reach this service.")
-    print(f"Loading {MODEL_ID} (first run downloads ~1.3 GB)…")
+    print(f"Loading {MODEL_ID} (first run downloads ~1.2 GB)…")
     load_model()
     detect_emotions(np.zeros(SAMPLE_RATE, dtype=np.float32))  # warm-up
     print("Voice model ready.")
@@ -148,19 +127,25 @@ def read_wav(data: bytes) -> np.ndarray:
 
 # ── Emotion (speech emotion recognition) ──────────────────────────────────────
 
-@torch.inference_mode()
 def detect_emotions(audio: np.ndarray) -> dict:
-    inputs = feature_extractor(audio, sampling_rate=SAMPLE_RATE, return_tensors="pt")
-    probs = torch.softmax(model(inputs.input_values), dim=-1)[0].tolist()
+    with model_lock:
+        result = model.generate(audio, granularity="utterance", extract_embedding=False, disable_pbar=True)[0]
     scores = dict.fromkeys(EMOTIONS, 0.0)
-    for i, p in enumerate(probs):
-        scores[LABEL_MAP[id2label[i]]] += p
-    return {k: round(v, 4) for k, v in scores.items()}
+    for label, p in zip(result["labels"], result["scores"]):
+        emotion = LABEL_MAP.get(label.split("/")[-1])
+        if emotion:
+            scores[emotion] += float(p)
+    if sum(scores.values()) == 0:  # everything went to "other"/"<unk>"
+        return {k: 1.0 if k == "neutral" else 0.0 for k in EMOTIONS}
+    calibrated = {k: max(v, 1e-6) ** (1 / CALIBRATION_T) for k, v in scores.items()}
+    total = sum(calibrated.values())
+    return {k: round(v / total, 4) for k, v in calibrated.items()}
 
 
 # ── Prosody (Praat) ───────────────────────────────────────────────────────────
 
-def measure_prosody(audio: np.ndarray) -> dict:
+def measure_prosody(audio: np.ndarray) -> tuple[dict, tuple[float, float]]:
+    """Returns the prosody and the (start, end) of the speech in seconds."""
     sound = parselmouth.Sound(audio.astype(np.float64), sampling_frequency=SAMPLE_RATE)
 
     # Loudness per 10 ms frame, in dB
@@ -202,7 +187,7 @@ def measure_prosody(audio: np.ndarray) -> dict:
         pitch_median, pitch_range_st = None, None
 
     speech_db = db[first : last + 1][is_speech[first : last + 1]]
-    return {
+    prosody = {
         "durationSec": round(len(audio) / SAMPLE_RATE, 2),
         "speechSec": round(speech_seconds, 2),
         "pitchMedianHz": round(pitch_median, 1) if pitch_median else None,
@@ -212,6 +197,7 @@ def measure_prosody(audio: np.ndarray) -> dict:
         "pauseCount": len(pauses),
         "pauseSec": round(sum(pauses), 2),
     }
+    return prosody, (float(times[first]), float(times[last]))
 
 
 # ── API ───────────────────────────────────────────────────────────────────────
@@ -224,5 +210,7 @@ def health():
 @app.post("/analyze", dependencies=[Depends(require_key)])
 def analyze(audio: UploadFile = File(...)):
     samples = read_wav(audio.file.read())
-    prosody = measure_prosody(samples)
-    return {"emotions": detect_emotions(samples), "prosody": prosody}
+    prosody, (start, end) = measure_prosody(samples)
+    lo = max(0, int((start - SPEECH_MARGIN_SECONDS) * SAMPLE_RATE))
+    hi = min(len(samples), int((end + SPEECH_MARGIN_SECONDS) * SAMPLE_RATE))
+    return {"emotions": detect_emotions(samples[lo:hi]), "prosody": prosody}
