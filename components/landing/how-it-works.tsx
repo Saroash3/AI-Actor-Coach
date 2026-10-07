@@ -11,14 +11,14 @@ const ACTS = [
   {
     act:   "Act II",
     icon:  Mic,
-    title: "Perform it out loud",
-    body:  "The narrator reads the stage directions; you speak your character's lines. Your voice is recorded and transcribed as you go.",
+    title: "Perform it on camera",
+    body:  "The narrator reads the stage directions; you speak your character's lines. Your voice is recorded and transcribed, while the camera follows your face and body.",
   },
   {
     act:   "Act III",
     icon:  NotebookPen,
     title: "Get your notes",
-    body:  "After every line: a score, what the audience heard, and what to change. At the curtain call, a full report with exercises.",
+    body:  "After every line: a score, what the audience heard and saw, and what to change. At the curtain call, a full report with exercises.",
   },
 ]
 

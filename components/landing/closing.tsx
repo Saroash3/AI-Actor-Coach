@@ -14,7 +14,7 @@ export function ClosingCta() {
           The stage is <span className="italic text-gilded">yours.</span>
         </h2>
         <p className="mx-auto mt-6 max-w-xl text-lg text-bone/55">
-          Pick a scene, find your light, and hear exactly how your performance lands, one line at a time.
+          Pick a scene, find your light, and see exactly how your performance lands, in your voice, face and body, one line at a time.
         </p>
         <div className="mt-10 flex flex-wrap justify-center gap-4">
           <Link href="/login?mode=signup" className="btn-spotlight group px-8 py-4 text-base">

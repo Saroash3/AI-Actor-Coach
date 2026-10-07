@@ -4,10 +4,12 @@ import { motion } from "framer-motion"
 import { Reveal } from "@/components/magic/reveal"
 import { NumberTicker } from "@/components/magic/number-ticker"
 
+// The app's weights with the camera on (lib/performance-scoring.ts)
 const PARTS = [
-  { label: "Emotion match", weight: 50, color: "from-velvet-500 to-velvet-700", text: "Did your voice carry the feeling the line calls for?" },
-  { label: "Voice pattern", weight: 30, color: "from-spot-300 to-spot-600",     text: "Did your pitch, volume, pace and pauses move the way that emotion moves?" },
-  { label: "Line accuracy", weight: 20, color: "from-bone/80 to-bone/40",        text: "Did you say the words as written?" },
+  { label: "Emotion match",   weight: 40, color: "from-velvet-500 to-velvet-700", text: "Did your voice carry the feeling the line calls for?" },
+  { label: "Face expression", weight: 20, color: "from-violet-400 to-violet-600", text: "Did your face show that same emotion?" },
+  { label: "Voice pattern",   weight: 24, color: "from-spot-300 to-spot-600",     text: "Did your pitch, volume, pace and pauses move the way that emotion moves?" },
+  { label: "Line accuracy",   weight: 16, color: "from-bone/80 to-bone/40",        text: "Did you say the words as written?" },
 ]
 
 export function Scoring() {
@@ -17,17 +19,22 @@ export function Scoring() {
         <Reveal>
           <p className="eyebrow">How a take is scored</p>
           <h2 className="mt-3 font-display text-4xl leading-tight text-bone sm:text-5xl">
-            One number, <span className="italic text-gilded">three reasons</span>
+            One number, <span className="italic text-gilded">four reasons</span>
           </h2>
           <p className="mt-5 text-lg text-bone/55">
-            Every line gets a score out of 100, built from three things a director listens for. You always see why, never just the number.
+            Every line gets a score out of 100, built from four things a director watches and listens for. You always see why,
+            never just the number.
+          </p>
+          <p className="mt-3 text-sm text-bone/40">
+            Camera off? Face expression drops out and the other three share the score (50 / 30 / 20). Body language comes as
+            notes alongside every line.
           </p>
 
           <div className="mt-10 grid grid-cols-3 gap-4">
             {[
               { n: 7, label: "emotions detected" },
               { n: 5, label: "voice measurements" },
-              { n: 100, label: "points per line" },
+              { n: 33, label: "body points tracked" },
             ].map((s) => (
               <div key={s.label} className="panel p-5">
                 <NumberTicker value={s.n} className="font-display text-4xl text-bone" />

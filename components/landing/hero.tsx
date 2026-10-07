@@ -14,11 +14,12 @@ const BARS = Array.from({ length: 44 }, (_, i) => Math.round(1000 * (0.25 + 0.75
 function LiveTakeCard() {
   const reduce = useReducedMotion()
   const components = [
-    { label: "Emotion match", value: 91 },
-    { label: "Voice pattern", value: 78 },
-    { label: "Line accuracy", value: 96 },
+    { label: "Emotion match",   value: 91 },
+    { label: "Face expression", value: 84 },
+    { label: "Voice pattern",   value: 78 },
+    { label: "Line accuracy",   value: 96 },
   ]
-  const total = 88
+  const total = 87 // 91×0.40 + 84×0.20 + 78×0.24 + 96×0.16, the app's weights with the camera on
   const circumference = 2 * Math.PI * 30
 
   return (
@@ -137,7 +138,7 @@ export function Hero() {
             transition={{ duration: 0.7, delay: 1.1 }}
             className="mb-6 inline-flex items-center gap-2 rounded-full border border-spot-400/20 bg-spot-400/[0.06] px-4 py-1.5 text-xs text-spot-200"
           >
-            <Mic className="h-3.5 w-3.5" /> AI voice coaching for actors
+            <Mic className="h-3.5 w-3.5" /> AI acting coach · voice, face and body
           </motion.div>
 
           <h1 className="font-display text-5xl leading-[1.05] tracking-tight text-bone sm:text-6xl lg:text-7xl">
@@ -157,8 +158,9 @@ export function Hero() {
             transition={{ duration: 0.8, delay: 1.9 }}
             className="mt-7 max-w-xl text-lg leading-relaxed text-bone/60"
           >
-            Rehearse real screenplay scenes out loud. ActorPro AI listens to <em className="text-bone/85 not-italic">how</em> you
-            deliver every line: the emotion in your voice, your pitch, volume, pace and pauses. Then it gives you a director&apos;s notes, scene by scene.
+            Rehearse real screenplay scenes out loud. ActorPro AI listens to and watches <em className="text-bone/85 not-italic">how</em> you
+            deliver every line: the emotion in your voice and on your face, your pitch, volume, pace and pauses, and your posture.
+            Then it gives you a director&apos;s notes, scene by scene.
           </motion.p>
 
           <motion.div
@@ -185,7 +187,7 @@ export function Hero() {
             {[
               ["30", "screenplays"],
               ["5,716", "scenes to rehearse"],
-              ["7", "emotions heard"],
+              ["7", "emotions, in voice and face"],
             ].map(([n, label]) => (
               <div key={label}>
                 <dt className="sr-only">{label}</dt>

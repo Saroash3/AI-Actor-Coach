@@ -85,10 +85,10 @@ function ArcSparkline() {
   )
 }
 
-function ComingSoon() {
+function InEveryTake() {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-velvet-400/30 bg-velvet-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-velvet-200">
-      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-velvet-400" /> Coming soon
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-200">
+      <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> In every take
     </span>
   )
 }
@@ -169,12 +169,13 @@ export function FeaturesBento() {
       <div className="pointer-events-none absolute left-1/2 top-1/3 h-96 w-[60%] -translate-x-1/2 rounded-full bg-velvet-700/10 blur-[120px]" aria-hidden />
       <div className="relative mx-auto max-w-7xl px-5 lg:px-8">
         <Reveal className="max-w-3xl">
-          <p className="eyebrow">What it listens for</p>
+          <p className="eyebrow">What it listens for, and watches</p>
           <h2 className="mt-3 font-display text-4xl leading-tight text-bone sm:text-5xl">
-            It hears what the <span className="italic text-gilded">audience</span> hears
+            It hears and sees what the <span className="italic text-gilded">audience</span> does
           </h2>
           <p className="mt-5 text-lg text-bone/55">
-            Not just the words: the feeling behind them. Two AI models and a speech lab&apos;s worth of measurements in every take.
+            Not just the words: the feeling behind them, in your voice, on your face and in your body. Five AI models and a speech
+            lab&apos;s worth of measurements in every take.
           </p>
         </Reveal>
 
@@ -214,7 +215,7 @@ export function FeaturesBento() {
             <GlowCard className="h-full p-8">
               <div className="flex items-center gap-2 text-spot-300"><ScanText className="h-5 w-5" /><span className="eyebrow">Line accuracy</span></div>
               <h3 className="mt-4 font-display text-2xl text-bone">Did you say the line?</h3>
-              <p className="mt-2 text-bone/55">Your transcript is matched word by word against the script.</p>
+              <p className="mt-2 text-bone/55">Whisper transcribes your take, then it is matched word by word against the script.</p>
               <WordDiff />
             </GlowCard>
           </StaggerItem>
@@ -250,14 +251,15 @@ export function FeaturesBento() {
           </StaggerItem>
         </Stagger>
 
-        {/* Next on the programme: camera-based coaching */}
+        {/* On camera: face and body, live in every take */}
         <Reveal className="mt-20 max-w-3xl">
-          <p className="eyebrow">Next on the programme</p>
+          <p className="eyebrow">On camera</p>
           <h3 className="mt-3 font-display text-3xl leading-tight text-bone sm:text-4xl">
             Your voice is only half the <span className="italic text-gilded">performance</span>
           </h3>
           <p className="mt-4 text-bone/55">
-            Soon the camera joins the rehearsal, so your notes cover what the audience <em>sees</em> as well as what it hears.
+            The camera joins every rehearsal, so your notes cover what the audience <em>sees</em> as well as what it hears.
+            It all runs in your browser: your video never leaves your device.
           </p>
         </Reveal>
 
@@ -270,12 +272,13 @@ export function FeaturesBento() {
                 </div>
                 <div>
                   <div className="flex flex-wrap items-center gap-3">
-                    <span className="flex items-center gap-2 text-spot-300"><ScanFace className="h-5 w-5" /><span className="eyebrow">Facial tracking</span></span>
-                    <ComingSoon />
+                    <span className="flex items-center gap-2 text-spot-300"><ScanFace className="h-5 w-5" /><span className="eyebrow">Facial expression</span></span>
+                    <InEveryTake />
                   </div>
                   <h3 className="mt-4 font-display text-2xl text-bone">Does your face tell the same story?</h3>
                   <p className="mt-2 text-bone/55">
-                    Facial landmark tracking reads your expressions line by line and checks them against the emotion the scene needs: a smile that reaches the eyes, a jaw tight with anger.
+                    An expression model reads your face about three times a second while you speak, and checks it against the emotion
+                    the line needs, judged on your most expressive moments. It counts for a fifth of every line&apos;s score.
                   </p>
                 </div>
               </div>
@@ -291,11 +294,12 @@ export function FeaturesBento() {
                 <div>
                   <div className="flex flex-wrap items-center gap-3">
                     <span className="flex items-center gap-2 text-velvet-300"><PersonStanding className="h-5 w-5" /><span className="eyebrow text-velvet-300/80">Body language</span></span>
-                    <ComingSoon />
+                    <InEveryTake />
                   </div>
                   <h3 className="mt-4 font-display text-2xl text-bone">Every gesture, every stance</h3>
                   <p className="mt-2 text-bone/55">
-                    Pose tracking follows your posture, gestures and movement, and flags when your body closes off in a scene that calls for confidence, or freezes when it should move.
+                    Pose tracking follows 33 points on your body: shoulders, head, lean, arms and hands. After every line you get a
+                    posture and body-language read-out with notes, based on whatever the camera can see.
                   </p>
                 </div>
               </div>
