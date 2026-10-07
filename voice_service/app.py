@@ -18,8 +18,10 @@ from pathlib import Path
 
 import numpy as np
 import parselmouth
-from fastapi import Depends, FastAPI, File, Header, HTTPException, UploadFile
+from fastapi import Body, Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
+from faster_whisper import WhisperModel
 from funasr import AutoModel
+from transformers import pipeline
 
 # emotion2vec+ large (~300M params, FunASR model licence: free use with attribution).
 # Chosen over the previous ehcalabres/wav2vec2 model after a benchmark on unseen speakers:
@@ -51,8 +53,29 @@ CALIBRATION_T = 3.25
 
 # Recordings end with the 2.5–7 s of quiet the app waits for before auto-stopping. That tail hurts the
 # model (in tests, angry clips padded with room noise dropped from 9/12 to 3/12 correct), so emotion is
-# judged on the speech only, plus a short margin.
-SPEECH_MARGIN_SECONDS = 0.15
+# judged on the speech plus a margin. 1 s keeps the soft starts and ends of quiet emotions (fear, sadness):
+# a 0.15 s margin dropped fear to 25% on clean clips; 1 s matched no trimming on clean clips (76% vs 77%)
+# and was best on app-like padded takes (79% vs 71% untrimmed).
+SPEECH_MARGIN_SECONDS = 1.0
+
+# Speech-to-text for line accuracy. The browser's built-in recogniser (Chrome, en-US) misheard accented
+# English ("they will fight you" -> "they will foight you"); Whisper is trained on 680k hours of speech in
+# many accents. The browser's live text is still shown while speaking; this transcript replaces it after.
+WHISPER_MODEL = os.environ.get("WHISPER_MODEL", "small.en")
+# Passing the script line as a hint helps rare words, but can make Whisper "hear" words that weren't
+# said (inflating line accuracy), so it is off unless the benchmark shows it is safe.
+USE_LINE_HINT = os.environ.get("WHISPER_LINE_HINT", "0") == "1"
+TRANSCRIBE_MARGIN_SECONDS = 0.3
+
+# Emotion a script line calls for, from its words. Same model the site used through Hugging Face's
+# hosted API, run here instead: the hosted API needs paid credits once the free monthly quota runs out
+# (it then answered 402 and every line fell back to "neutral 100%"). ~82M params, milliseconds on CPU.
+TEXT_MODEL_ID = "j-hartmann/emotion-english-distilroberta-base"
+
+# Debugging only (off by default): VOICE_DEBUG_SAVE=1 keeps the last takes and their results on this
+# machine in voice_service/debug_takes/ (git-ignored), to check what the models actually heard.
+DEBUG_DIR = Path(__file__).resolve().parent / "debug_takes" if os.environ.get("VOICE_DEBUG_SAVE") == "1" else None
+DEBUG_KEEP = 20
 
 
 # ── Access key ────────────────────────────────────────────────────────────────
@@ -83,20 +106,28 @@ def require_key(x_voice_key: str = Header(default="")):
 
 model: AutoModel | None = None
 model_lock = threading.Lock()  # /analyze runs in a thread pool; one inference at a time
+whisper: WhisperModel | None = None
+whisper_lock = threading.Lock()
+text_classifier = None
+text_lock = threading.Lock()
 
 
 def load_model():
-    global model
+    global model, whisper, text_classifier
     model = AutoModel(model=MODEL_ID, hub="hf", disable_update=True)
+    whisper = WhisperModel(WHISPER_MODEL, device="cpu", compute_type="int8")
+    text_classifier = pipeline("text-classification", model=TEXT_MODEL_ID, top_k=None, device=-1)
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     if not SERVICE_KEY:
         print("WARNING: VOICE_SERVICE_KEY is not set; /analyze is open to anyone who can reach this service.")
-    print(f"Loading {MODEL_ID} (first run downloads ~1.2 GB)…")
+    print(f"Loading {MODEL_ID} (first run downloads ~1.2 GB) and Whisper {WHISPER_MODEL}…")
     load_model()
     detect_emotions(np.zeros(SAMPLE_RATE, dtype=np.float32))  # warm-up
+    transcribe(np.zeros(SAMPLE_RATE, dtype=np.float32))
+    text_emotion("Warm-up.")
     print("Voice model ready.")
     yield
 
@@ -140,6 +171,36 @@ def detect_emotions(audio: np.ndarray) -> dict:
     calibrated = {k: max(v, 1e-6) ** (1 / CALIBRATION_T) for k, v in scores.items()}
     total = sum(calibrated.values())
     return {k: round(v / total, 4) for k, v in calibrated.items()}
+
+
+# ── Emotion of a script line, from its text ───────────────────────────────────
+
+def text_emotion(text: str) -> dict:
+    with text_lock:
+        results = text_classifier(text[:512])
+    if results and isinstance(results[0], list):  # some pipeline versions nest one level deeper
+        results = results[0]
+    scores = dict.fromkeys(EMOTIONS, 0.0)
+    for r in results:
+        if r["label"].lower() in scores:
+            scores[r["label"].lower()] = round(float(r["score"]), 4)
+    top = max(scores, key=scores.get)
+    return {"emotion": top, "score": scores[top], "all": scores}
+
+
+# ── Speech to text (Whisper) ──────────────────────────────────────────────────
+
+def transcribe(audio: np.ndarray, line_hint: str | None = None) -> str:
+    with whisper_lock:
+        segments, _ = whisper.transcribe(
+            audio,
+            language="en",
+            beam_size=5,
+            vad_filter=True,                    # skip the silent stretches
+            condition_on_previous_text=False,   # one short line: no carry-over hallucinations
+            initial_prompt=line_hint if USE_LINE_HINT and line_hint else None,
+        )
+        return " ".join(s.text.strip() for s in segments).strip()
 
 
 # ── Prosody (Praat) ───────────────────────────────────────────────────────────
@@ -204,13 +265,46 @@ def measure_prosody(audio: np.ndarray) -> tuple[dict, tuple[float, float]]:
 
 @app.get("/health")
 def health():
-    return {"ok": model is not None, "model": MODEL_ID}
+    return {"ok": model is not None and whisper is not None, "model": MODEL_ID, "speechToText": f"whisper-{WHISPER_MODEL}"}
+
+
+@app.post("/text-emotion", dependencies=[Depends(require_key)])
+def text_emotion_endpoint(payload: dict = Body(...)):
+    text = str(payload.get("text", "")).strip()
+    if not text:
+        raise HTTPException(400, "No text")
+    return text_emotion(text)
 
 
 @app.post("/analyze", dependencies=[Depends(require_key)])
-def analyze(audio: UploadFile = File(...)):
-    samples = read_wav(audio.file.read())
+def analyze(audio: UploadFile = File(...), text: str = Form(default="")):
+    raw = audio.file.read()
+    samples = read_wav(raw)
+    result = _analyze(samples, text)
+    if DEBUG_DIR:
+        save_debug_take(raw, text, result)
+    return result
+
+
+def save_debug_take(raw: bytes, text: str, result: dict):
+    import json, time
+    DEBUG_DIR.mkdir(exist_ok=True)
+    stem = DEBUG_DIR / time.strftime("%Y%m%d-%H%M%S")
+    stem.with_suffix(".wav").write_bytes(raw)
+    stem.with_suffix(".json").write_text(json.dumps({"line": text, **result}, indent=1), encoding="utf-8")
+    for old in sorted(DEBUG_DIR.glob("*.wav"))[:-DEBUG_KEEP]:
+        old.unlink(missing_ok=True)
+        old.with_suffix(".json").unlink(missing_ok=True)
+
+
+def _analyze(samples: np.ndarray, text: str) -> dict:
     prosody, (start, end) = measure_prosody(samples)
     lo = max(0, int((start - SPEECH_MARGIN_SECONDS) * SAMPLE_RATE))
     hi = min(len(samples), int((end + SPEECH_MARGIN_SECONDS) * SAMPLE_RATE))
-    return {"emotions": detect_emotions(samples[lo:hi]), "prosody": prosody}
+    t_lo = max(0, int((start - TRANSCRIBE_MARGIN_SECONDS) * SAMPLE_RATE))
+    t_hi = min(len(samples), int((end + TRANSCRIBE_MARGIN_SECONDS) * SAMPLE_RATE))
+    return {
+        "emotions":   detect_emotions(samples[lo:hi]),
+        "prosody":    prosody,
+        "transcript": transcribe(samples[t_lo:t_hi], text or None),
+    }

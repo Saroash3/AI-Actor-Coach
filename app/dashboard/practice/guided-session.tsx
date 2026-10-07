@@ -681,9 +681,9 @@ export default function GuidedSession({
     const block = blocks[index] as SpeechBlock
     setAnalyses((prev) => ({ ...prev, [index]: { status: "analyzing", result: null, error: null } }))
 
-    const voicePromise: Promise<VoiceAnalysisResult | Error | null> =
-      wav && voiceAvailable !== false ? analyzeVoice(wav).catch((err: Error) => err) : Promise.resolve(null)
     const scriptText = block.lines.join(" ")
+    const voicePromise: Promise<VoiceAnalysisResult | Error | null> =
+      wav && voiceAvailable !== false ? analyzeVoice(wav, scriptText).catch((err: Error) => err) : Promise.resolve(null)
     const targetPromise = emotionsRef.current[index]
       ? Promise.resolve(emotionsRef.current[index])
       : fetchEmotionData(scriptText)
@@ -694,6 +694,13 @@ export default function GuidedSession({
     if (voice instanceof Error) error = voice.message
     else if (voiceAvailable === false) error = "Voice analysis is offline, so only line accuracy was scored."
     const heard = voice instanceof Error ? null : voice
+
+    // Whisper's transcript (voice service) replaces the browser's live one: it copes far better with accents.
+    // The browser text is kept when the service is offline or heard nothing.
+    if (heard?.transcript) {
+      transcriptRef.current = heard.transcript
+      setTranscript(heard.transcript)
+    }
 
     // No calibration? Judge the voice pattern against the average of this session's takes instead
     let effectiveBaseline = baseline

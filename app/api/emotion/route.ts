@@ -4,9 +4,33 @@ const HF_MODEL = "j-hartmann/emotion-english-distilroberta-base"
 const HF_URL   = `https://router.huggingface.co/hf-inference/models/${HF_MODEL}`
 const EMOTIONS = ["anger", "disgust", "fear", "joy", "neutral", "sadness", "surprise"]
 
+// Our own voice service runs the same model locally (no credits needed). Hugging Face's hosted API is the
+// backup: its free monthly quota ran out (HTTP 402), which made every line fall back to "neutral 100%".
+const VOICE_SERVICE_URL = process.env.VOICE_SERVICE_URL?.replace(/\/$/, "") || "http://127.0.0.1:8001"
+
 function neutralFallback() {
   const all = Object.fromEntries(EMOTIONS.map((e) => [e, e === "neutral" ? 1 : 0]))
   return NextResponse.json({ emotion: "neutral", score: 1, all })
+}
+
+async function callVoiceService(text: string) {
+  try {
+    const res = await fetch(`${VOICE_SERVICE_URL}/text-emotion`, {
+      method:  "POST",
+      headers: {
+        "Content-Type":               "application/json",
+        "X-Voice-Key":                process.env.VOICE_SERVICE_KEY ?? "",
+        "ngrok-skip-browser-warning": "true",
+      },
+      body:   JSON.stringify({ text: text.slice(0, 512) }),
+      signal: AbortSignal.timeout(8000),
+    })
+    if (!res.ok) return null
+    const data = await res.json()
+    return data?.emotion && data?.all ? data : null
+  } catch {
+    return null // service not running or unreachable: try Hugging Face instead
+  }
 }
 
 async function callHF(text: string, token: string, retries = 2): Promise<Response> {
@@ -41,6 +65,9 @@ export async function POST(req: Request) {
   try {
     const { text } = await req.json()
     if (!text?.trim()) return neutralFallback()
+
+    const local = await callVoiceService(text)
+    if (local) return NextResponse.json(local)
 
     const token = process.env.HUGGINGFACE_API_TOKEN?.trim()
     if (!token) {

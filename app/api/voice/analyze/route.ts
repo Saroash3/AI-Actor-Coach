@@ -44,6 +44,8 @@ export async function POST(req: Request) {
 
   const upstream = new FormData()
   upstream.append("audio", audio, "line.wav")
+  const text = form?.get("text")
+  if (typeof text === "string" && text.trim()) upstream.append("text", text.slice(0, 500))
 
   try {
     const res = await fetch(`${VOICE_SERVICE_URL}/analyze`, {

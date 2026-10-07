@@ -18,3 +18,9 @@ __pycache__/
 
 # Benchmark test sets: research-only licences and 1 GB+ of files (see evaluation/face-model-benchmark/README.md)
 evaluation/**/datasets/
+
+# Voice debugging recordings (VOICE_DEBUG_SAVE=1), never committed
+voice_service/debug_takes/
+
+# Local-only report copy with dataset photos (RAF-DB/CK+/FER-2013 licences forbid re-sharing)
+reports/*_with_photos.pdf

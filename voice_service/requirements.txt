@@ -1,8 +1,10 @@
 # CPU build of torch: pip install torch --index-url https://download.pytorch.org/whl/cpu
 torch
 funasr  # runs emotion2vec+ (speech emotion)
+transformers  # text emotion of script lines (j-hartmann distilroberta)
 fastapi
 uvicorn[standard]
 python-multipart
 numpy
 praat-parselmouth
+faster-whisper  # Whisper speech-to-text for line accuracy

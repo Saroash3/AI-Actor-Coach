@@ -63,12 +63,15 @@ const rms = (chunk: Float32Array) => {
 export interface VoiceAnalysisResult {
   emotions: Record<string, number>
   prosody: import("./performance-scoring").Prosody
+  /** Whisper's transcript of the take (more accurate than the browser's live recognition) */
+  transcript?: string
 }
 
 /** Sends a recording to the voice service (via /api/voice/analyze). Throws with a user-facing message. */
-export async function analyzeVoice(wav: Blob): Promise<VoiceAnalysisResult> {
+export async function analyzeVoice(wav: Blob, scriptText?: string): Promise<VoiceAnalysisResult> {
   const form = new FormData()
   form.append("audio", wav, "line.wav")
+  if (scriptText) form.append("text", scriptText) // optional hint for speech-to-text (off by default in the service)
   const res = await fetch("/api/voice/analyze", { method: "POST", body: form })
   const data = await res.json().catch(() => ({}))
   if (res.ok) return data
