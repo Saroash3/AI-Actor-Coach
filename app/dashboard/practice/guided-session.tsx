@@ -413,7 +413,7 @@ function SpeechBlockUI({ block, emotionData, lineEmotionList, isLast, isRecordin
 
       {/* Delivery feedback */}
       {analysis && (
-        <LineResultCard status={analysis.status} result={analysis.result} error={analysis.error} body={bodyResult} onRetry={onRetry} />
+        <LineResultCard status={analysis.status} result={analysis.result} error={analysis.error} body={bodyResult} faceResult={faceResult} onRetry={onRetry} />
       )}
     </div>
   )

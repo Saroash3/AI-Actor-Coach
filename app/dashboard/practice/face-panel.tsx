@@ -147,25 +147,29 @@ export function FacePanel({
             <p className="text-[10px] font-bold uppercase tracking-widest text-white/30">Live face emotions</p>
             <LiveEmotionBreakdown emotions={liveEmotions} dominant={liveEmotion} />
           </>
-        ) : result ? (
-          <>
-            <div className="flex items-center justify-between">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-white/30">Face result</p>
-              <EmotionBadge emotion={result.dominantEmotion} />
-            </div>
-            <LiveEmotionBreakdown emotions={result.emotions} dominant={result.dominantEmotion} />
-            <p className="text-[10px] text-white/25 mt-1">
-              {result.frameCount} frames · confidence {Math.round(result.confidence * 100)}%
-            </p>
-          </>
         ) : (
           <p className="text-[10px] text-white/25">
             {enabled
-              ? isLoading ? "Loading models…" : "No data yet"
+              ? isLoading ? "Loading models…" : "Camera active for recording"
               : "Enable camera above to get facial emotion feedback"}
           </p>
         )}
       </div>
+    </div>
+  )
+}
+
+export function FaceResultSection({ result }: Readonly<{ result: FaceAnalysisResult }>) {
+  return (
+    <div className="rounded-lg bg-white/5 border border-white/10 p-3 text-xs space-y-2">
+      <div className="flex items-center justify-between">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">Face result</p>
+        <EmotionBadge emotion={result.dominantEmotion} />
+      </div>
+      <LiveEmotionBreakdown emotions={result.emotions} dominant={result.dominantEmotion} />
+      <p className="text-[10px] text-white/25 mt-1">
+        {result.frameCount} frames · confidence {Math.round(result.confidence * 100)}%
+      </p>
     </div>
   )
 }

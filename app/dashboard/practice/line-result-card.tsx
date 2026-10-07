@@ -4,6 +4,8 @@ import { Loader2, RotateCcw, ArrowUp, ArrowDown, Minus, Check, X, Lightbulb, Ale
 import { Button } from "@/components/ui/button"
 import { FEATURE_LABELS, type LineResult } from "@/lib/performance-scoring"
 import type { BodyAnalysisResult } from "@/lib/use-body-analyzer"
+import type { FaceAnalysisResult } from "@/lib/use-face-analyzer"
+import { FaceResultSection } from "./face-panel"
 
 export type AnalysisStatus = "analyzing" | "done" | "error"
 
@@ -148,12 +150,13 @@ function BodySection({ body }: Readonly<{ body: BodyAnalysisResult | null }>) {
   )
 }
 
-export function LineResultCard({ status, result, error, body, onRetry }: Readonly<{
-  status:  AnalysisStatus
-  result:  LineResult | null
-  error:   string | null
-  body?:   BodyAnalysisResult | null // undefined when the camera was off
-  onRetry: () => void
+export function LineResultCard({ status, result, error, body, faceResult, onRetry }: Readonly<{
+  status:      AnalysisStatus
+  result:      LineResult | null
+  error:       string | null
+  body?:       BodyAnalysisResult | null // undefined when the camera was off
+  faceResult?: FaceAnalysisResult | null
+  onRetry:     () => void
 }>) {
   if (status === "analyzing") {
     return (
@@ -173,24 +176,23 @@ export function LineResultCard({ status, result, error, body, onRetry }: Readonl
   return (
     <div className="p-4 rounded-xl bg-black/30 border border-white/10 space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
       {/* Score */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-4">
         <ScoreRing score={result.total} />
-        <p className={`text-sm font-semibold ${band.text}`}>{band.label}</p>
-      </div>
-
-      <div className="space-y-2">
-        <ComponentBar label="Emotion match" value={result.emotion} hint="Did your voice carry the target emotion? (50%)" />
-        {result.faceScore != null && (
-          <ComponentBar label="Face expression" value={result.faceScore} hint="Did your face show the right emotion? (20% when camera is on)" />
-        )}
-        <ComponentBar
-          label="Voice pattern"
-          value={result.voice}
-          hint="Did your pitch, volume and pace change the way the emotion needs? (30%)"
-          tag={result.voiceEstimated ? "estimated" : undefined}
-          missing={result.prosody ? "Needs your normal voice to compare with: calibrate, or it starts from your next line." : undefined}
-        />
-        <ComponentBar label="Line accuracy" value={result.accuracy} hint="Did you say the right words? (20%)" />
+        <div className="flex-1 min-w-0 space-y-2">
+          <p className={`text-sm font-semibold ${band.text}`}>{band.label}</p>
+          <ComponentBar label="Emotion match" value={result.emotion} hint="Did your voice carry the target emotion? (50%)" />
+          {result.faceScore != null && (
+            <ComponentBar label="Face expression" value={result.faceScore} hint="Did your face show the right emotion? (20% when camera is on)" />
+          )}
+          <ComponentBar
+            label="Voice pattern"
+            value={result.voice}
+            hint="Did your pitch, volume and pace change the way the emotion needs? (30%)"
+            tag={result.voiceEstimated ? "estimated" : undefined}
+            missing={result.prosody ? "Needs your normal voice to compare with: calibrate, or it starts from your next line." : undefined}
+          />
+          <ComponentBar label="Line accuracy" value={result.accuracy} hint="Did you say the right words? (20%)" />
+        </div>
       </div>
 
       {error && (
@@ -199,8 +201,22 @@ export function LineResultCard({ status, result, error, body, onRetry }: Readonl
         </p>
       )}
 
-      {/* Target vs you, emotion by emotion */}
+      {/* Target vs you, emotion by emotion (voice scores) */}
       {result.achieved && <EmotionBreakdown target={result.target} voice={result.achieved} score={result.emotion} />}
+
+      {/* Facial scores (moved below where voice scores are) */}
+      {(faceResult || (result.faceEmotions && result.faceTop)) && (
+        <FaceResultSection
+          result={
+            faceResult ?? {
+              dominantEmotion: result.faceTop ?? "neutral",
+              emotions: result.faceEmotions ?? {},
+              confidence: result.faceConfidence ?? 0,
+              frameCount: 0,
+            }
+          }
+        />
+      )}
 
       {/* Posture and body language over the take (only when the camera was on) */}
       {body !== undefined && <BodySection body={body} />}
