@@ -172,55 +172,25 @@ export function LineResultCard({ status, result, error, body, onRetry }: Readonl
 
   return (
     <div className="p-4 rounded-xl bg-black/30 border border-white/10 space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
-      {/* ── 1. Combined Score First ── */}
-      <div className="p-4 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <ScoreRing score={result.total} size={76} />
-          <div>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-white/40">Combined Performance Score</span>
-            <div className="flex items-baseline gap-2 mt-0.5">
-              <span className={`text-xl font-bold ${band.text}`}>{band.label}</span>
-              <span className="text-sm text-white/50 font-medium">({result.total}/100)</span>
-            </div>
-            <p className="text-xs text-white/50 mt-0.5">Overall composite score across facial, vocal, and physical delivery</p>
-          </div>
-        </div>
+      {/* Score */}
+      <div className="flex items-center gap-3">
+        <ScoreRing score={result.total} />
+        <p className={`text-sm font-semibold ${band.text}`}>{band.label}</p>
       </div>
 
-      {/* ── 2. Breakdown Down Below ── */}
-      <div className="p-4 rounded-xl bg-black/20 border border-white/5 space-y-3">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">
-          Modality Breakdown
-        </p>
-        <div className="space-y-2.5">
-          {/* Facial */}
-          {result.faceScore != null && (
-            <ComponentBar label="Facial expression" value={result.faceScore} hint="Did your face show the right emotion? (20% when camera is on)" />
-          )}
-
-          {/* Voice */}
-          <ComponentBar label="Voice emotion match" value={result.emotion} hint="Did your voice carry the target emotion? (50%)" />
-          <ComponentBar
-            label="Voice pattern"
-            value={result.voice}
-            hint="Did your pitch, volume and pace change the way the emotion needs? (30%)"
-            tag={result.voiceEstimated ? "estimated" : undefined}
-            missing={result.prosody ? "Needs your normal voice to compare with: calibrate, or it starts from your next line." : undefined}
-          />
-
-          {/* Body Posture */}
-          {body !== undefined && (
-            <ComponentBar
-              label="Body posture"
-              value={body?.score ?? null}
-              hint="Posture alignment, shoulders level, head straight, upright body"
-              missing={body === null ? "No body detected in camera view" : undefined}
-            />
-          )}
-
-          {/* Line accuracy */}
-          <ComponentBar label="Line accuracy" value={result.accuracy} hint="Did you say the right words? (20%)" />
-        </div>
+      <div className="space-y-2">
+        <ComponentBar label="Emotion match" value={result.emotion} hint="Did your voice carry the target emotion? (50%)" />
+        {result.faceScore != null && (
+          <ComponentBar label="Face expression" value={result.faceScore} hint="Did your face show the right emotion? (20% when camera is on)" />
+        )}
+        <ComponentBar
+          label="Voice pattern"
+          value={result.voice}
+          hint="Did your pitch, volume and pace change the way the emotion needs? (30%)"
+          tag={result.voiceEstimated ? "estimated" : undefined}
+          missing={result.prosody ? "Needs your normal voice to compare with: calibrate, or it starts from your next line." : undefined}
+        />
+        <ComponentBar label="Line accuracy" value={result.accuracy} hint="Did you say the right words? (20%)" />
       </div>
 
       {error && (
