@@ -1,6 +1,6 @@
 "use client"
 
-import { Loader2, RotateCcw, ArrowUp, ArrowDown, Minus, Check, X, Lightbulb, AlertTriangle, Camera, PersonStanding } from "lucide-react"
+import { Loader2, RotateCcw, ArrowUp, ArrowDown, Minus, Check, X, Lightbulb, AlertTriangle, Camera, PersonStanding, MicOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { FEATURE_LABELS, type LineResult } from "@/lib/performance-scoring"
 import type { BodyAnalysisResult } from "@/lib/use-body-analyzer"
@@ -103,16 +103,8 @@ function EmotionBreakdown({ target, voice, score }: Readonly<{
   )
 }
 
-/** Posture and body language over the whole take. null = camera was on but no body was seen */
-function BodySection({ body }: Readonly<{ body: BodyAnalysisResult | null }>) {
-  if (!body) {
-    return (
-      <div className="rounded-lg bg-white/5 border border-white/10 p-3 text-xs flex items-start gap-2 text-white/60">
-        <PersonStanding className="w-4 h-4 shrink-0 text-velvet-300" />
-        No body detected during this line. Step back so your shoulders, arms and hips are in view of the camera.
-      </div>
-    )
-  }
+/** Posture and body language over the whole take (only when the camera was on and a body was seen) */
+function BodySection({ body }: Readonly<{ body: BodyAnalysisResult }>) {
   // Only what the camera saw: parts that were out of frame are left out, not flagged
   const traits = ([
     ["Shoulders", body.shoulders], ["Head", body.head], ["Lean", body.body],
@@ -152,7 +144,7 @@ export function LineResultCard({ status, result, error, body, onRetry }: Readonl
   status:  AnalysisStatus
   result:  LineResult | null
   error:   string | null
-  body?:   BodyAnalysisResult | null // undefined when the camera was off
+  body?:   BodyAnalysisResult | null // missing when the camera was off or no body was seen
   onRetry: () => void
 }>) {
   if (status === "analyzing") {
@@ -167,7 +159,22 @@ export function LineResultCard({ status, result, error, body, onRetry }: Readonl
     )
   }
 
-  if (!result) return null
+  // Nothing to score (e.g. no speech in the take): say so, offer a retake, show no numbers
+  if (!result) {
+    if (status !== "error") return null
+    return (
+      <div className="p-4 rounded-xl bg-black/30 border border-white/10 space-y-2">
+        <p className="text-sm text-white/80 flex items-start gap-2">
+          <MicOff className="w-4 h-4 shrink-0 mt-0.5 text-velvet-300" /> {error ?? "This take couldn't be analysed."}
+        </p>
+        {/* Whatever was still captured is shown */}
+        {body && <BodySection body={body} />}
+        <Button onClick={onRetry} variant="ghost" size="sm" className="text-white/60 hover:text-white hover:bg-white/10 gap-1.5 -ml-2">
+          <RotateCcw className="w-3.5 h-3.5" /> Retry this line
+        </Button>
+      </div>
+    )
+  }
   const band = scoreBand(result.total)
 
   return (
@@ -177,18 +184,25 @@ export function LineResultCard({ status, result, error, body, onRetry }: Readonl
         <ScoreRing score={result.total} />
         <div className="flex-1 min-w-0 space-y-2">
           <p className={`text-sm font-semibold ${band.text}`}>{band.label}</p>
-          <ComponentBar label="Emotion match" value={result.emotion} hint="Did your voice carry the target emotion? (50%)" />
+          {/* Nothing said: only what was captured (the face) is shown and scored */}
+          {!result.noSpeech && (
+            <ComponentBar label="Emotion match" value={result.emotion} hint="Did your voice carry the target emotion? (50%)" />
+          )}
           {result.faceScore != null && (
             <ComponentBar label="Face expression" value={result.faceScore} hint="Did your face show the right emotion? (20% when camera is on)" />
           )}
-          <ComponentBar
-            label="Voice pattern"
-            value={result.voice}
-            hint="Did your pitch, volume and pace change the way the emotion needs? (30%)"
-            tag={result.voiceEstimated ? "estimated" : undefined}
-            missing={result.prosody ? "Needs your normal voice to compare with: calibrate, or it starts from your next line." : undefined}
-          />
-          <ComponentBar label="Line accuracy" value={result.accuracy} hint="Did you say the right words? (20%)" />
+          {!result.noSpeech && (
+            <ComponentBar
+              label="Voice pattern"
+              value={result.voice}
+              hint="Did your pitch, volume and pace change the way the emotion needs? (30%)"
+              tag={result.voiceEstimated ? "estimated" : undefined}
+              missing={result.prosody ? "Needs your normal voice to compare with: calibrate, or it starts from your next line." : undefined}
+            />
+          )}
+          {result.accuracy != null && (
+            <ComponentBar label="Line accuracy" value={result.accuracy} hint="Did you say the right words? (20%)" />
+          )}
         </div>
       </div>
 
@@ -202,7 +216,7 @@ export function LineResultCard({ status, result, error, body, onRetry }: Readonl
       {result.achieved && <EmotionBreakdown target={result.target} voice={result.achieved} score={result.emotion} />}
 
       {/* Posture and body language over the take (only when the camera was on) */}
-      {body !== undefined && <BodySection body={body} />}
+      {body && <BodySection body={body} />}
 
       {/* Voice features */}
       {result.features.length > 0 && (

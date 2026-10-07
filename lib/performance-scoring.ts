@@ -298,10 +298,11 @@ export interface LineResult {
   emotion:     number | null
   voice:       number | null
   voiceEstimated: boolean
-  accuracy:    number
+  accuracy:    number | null // null when nothing was said (the take was scored on the face only)
   total:       number
   features:    FeatureResult[]
-  accuracyDetail: ReturnType<typeof scoreLineAccuracy>
+  accuracyDetail: ReturnType<typeof scoreLineAccuracy> | null
+  noSpeech:    boolean
   tips:        Tip[]
   faceEmotions:   EmotionMap | null
   faceTop:        string | null
@@ -328,9 +329,12 @@ export function scoreLine(input: {
   voice:      VoiceAnalysis | null
   baseline:   Baseline | null
   face?:      FaceAnalysis | null
+  /** false when nothing was said: voice and line accuracy are left out, the face alone is scored */
+  spoke?:     boolean
 }): LineResult {
   const targetTop = topEmotion(input.target)
-  const accuracyDetail = scoreLineAccuracy(input.scriptText, input.transcript)
+  const spoke = input.spoke ?? true
+  const accuracyDetail = spoke ? scoreLineAccuracy(input.scriptText, input.transcript) : null
   const spokenWords = countWords(input.transcript) || countWords(input.scriptText)
   const wordsPerSec = input.voice ? spokenWords / Math.max(0.3, input.voice.prosody.speechSec) : null
 
@@ -344,12 +348,14 @@ export function scoreLine(input: {
     : null
 
   const w = faceResult ? weightsWithFace : weights
-  const parts: [number, number][] = [[accuracyDetail.score, w.accuracy]]
+  // Only what was measured counts; missing parts are left out and the weights re-balanced (never counted as 0)
+  const parts: [number, number][] = []
+  if (accuracyDetail) parts.push([accuracyDetail.score, w.accuracy])
   if (emotionResult) parts.push([emotionResult.score, w.emotion])
   if (voiceResult?.score != null) parts.push([voiceResult.score, w.voice])
   if (faceResult) parts.push([faceResult.score, (w as typeof weightsWithFace).face])
   const weightSum = parts.reduce((s, [, wt]) => s + wt, 0)
-  const total = Math.round(parts.reduce((s, [v, wt]) => s + v * wt, 0) / weightSum)
+  const total = weightSum ? Math.round(parts.reduce((s, [v, wt]) => s + v * wt, 0) / weightSum) : 0
 
   const tips: Tip[] = []
   if (emotionResult && emotionResult.achievedTop !== targetTop) {
@@ -361,8 +367,9 @@ export function scoreLine(input: {
   for (const f of [...(voiceResult?.features ?? [])].sort((a, b) => a.score - b.score)) {
     if (f.score < 0.5) tips.push({ kind: "voice", text: `${FEATURE_ADVICE[f.key][f.needed]}.` })
   }
-  const dropped = [...accuracyDetail.missing, ...accuracyDetail.wrong.map((w) => w.expected)].filter((w) => !MINOR_WORDS.has(w))
-  if (accuracyDetail.score < 90 && dropped.length) {
+  if (!spoke) tips.push({ kind: "words", text: "No speech detected, so this take was scored on your face only. Say the line aloud to get voice and line scores." })
+  const dropped = accuracyDetail ? [...accuracyDetail.missing, ...accuracyDetail.wrong.map((w) => w.expected)].filter((w) => !MINOR_WORDS.has(w)) : []
+  if (accuracyDetail && accuracyDetail.score < 90 && dropped.length) {
     tips.push({ kind: "words", text: `Check your lines: you missed or changed "${dropped.slice(0, 3).join('", "')}".` })
   }
   if (tips.length === 0) tips.push({ kind: "praise", text: `Strong delivery: the ${targetTop} came through clearly${faceResult ? " in both voice and face" : ""}.` })
@@ -380,10 +387,11 @@ export function scoreLine(input: {
     emotion:        emotionResult?.score ?? null,
     voice:          voiceResult?.score ?? null,
     voiceEstimated: Boolean(voiceResult && input.baseline?.estimated),
-    accuracy:       accuracyDetail.score,
+    accuracy:       accuracyDetail?.score ?? null,
     total,
     features:       voiceResult?.features ?? [],
     accuracyDetail,
+    noSpeech:       !spoke,
     tips:           tips.slice(0, 3),
     faceEmotions:   input.face ? normalize(input.face.emotions) : null,
     faceTop:        faceResult?.achievedTop ?? null,
@@ -414,7 +422,7 @@ export interface SceneReport {
   overall:        number
   emotion:        number | null
   voice:          number | null
-  accuracy:       number
+  accuracy:       number | null
   lineCount:      number
   strongest:      LineResult | null
   weakest:        LineResult | null
@@ -441,7 +449,7 @@ export function buildSceneReport(lines: LineResult[], baseline: Baseline | null)
     overall:        lines.length ? Math.round(mean(lines.map((l) => l.total))) : 0,
     emotion:        avgOrNull(lines.map((l) => l.emotion)),
     voice:          avgOrNull(lines.map((l) => l.voice)),
-    accuracy:       Math.round(mean(lines.map((l) => l.accuracy))),
+    accuracy:       avgOrNull(lines.map((l) => l.accuracy)),
     lineCount:      lines.length,
     strongest:      sorted[0] ?? null,
     weakest:        sorted.length > 1 ? sorted[sorted.length - 1] : null,
@@ -515,7 +523,7 @@ function recommend(lines: LineResult[], r: SceneReport): Recommendation[] {
   }
 
   // 4. Knowing the lines
-  if (r.accuracy < 85) {
+  if (r.accuracy != null && r.accuracy < 85) {
     recs.push({
       title:    "Learn the lines more securely",
       detail:   `Your line accuracy was ${r.accuracy}%. Paraphrasing takes attention away from the performance.`,

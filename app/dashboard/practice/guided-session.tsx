@@ -110,6 +110,14 @@ function parseRecognitionResult(event: any): string {
   return text.trim()
 }
 
+// Stores a take's result, or removes the entry when there is none, so nothing is shown for that take
+function withResult<T>(prev: Record<number, T>, index: number, value: T | null): Record<number, T> {
+  const next = { ...prev }
+  if (value == null) delete next[index]
+  else next[index] = value
+  return next
+}
+
 async function fetchEmotionData(text: string): Promise<EmotionData | null> {
   if (!text || text.trim().length < 4) return null
   try {
@@ -702,6 +710,29 @@ export default function GuidedSession({
       setTranscript(heard.transcript)
     }
 
+    // Nothing was said (the service found no speech, or no words were recognised at all). Whatever was still
+    // captured gives a result: with a face, the take is scored on the face alone (voice and line accuracy are
+    // left out, not counted as 0). With nothing at all, there is no score, just a prompt to try again.
+    const noSpeech = (voice instanceof Error && voice.name === "NoSpeechError") || countWords(transcriptRef.current) === 0
+    if (noSpeech) {
+      if (!faceResultRef.current) {
+        setAnalyses((prev) => ({ ...prev, [index]: { status: "error", result: null, error: "No speech detected. Press Retry and say the line." } }))
+        return
+      }
+      const faceOnly = scoreLine({
+        speaker:    block.speaker,
+        scriptText,
+        transcript: "",
+        target:     target?.all ?? { neutral: 1 },
+        voice:      null,
+        baseline:   null,
+        face:       faceResultRef.current,
+        spoke:      false,
+      })
+      setAnalyses((prev) => ({ ...prev, [index]: { status: "done", result: faceOnly, error: null } }))
+      return
+    }
+
     // No calibration? Judge the voice pattern against the average of this session's takes instead
     let effectiveBaseline = baseline
     if (heard) {
@@ -813,16 +844,18 @@ export default function GuidedSession({
     setIsRecording(false)
     setRecorded(true)
 
-    if (faceEnabled && faceAnalyzer.isActive) {
-      const fr = faceAnalyzer.stopAndAnalyze(emotionsRef.current[blockIndex]?.top)
-      faceResultRef.current = fr
-      setFaceResults((prev) => ({ ...prev, [blockIndex]: fr }))
+    // Face and body results only when the camera was really running during the take (not just switched on:
+    // it can be blocked, missing or still starting). No face/body seen = no result, rather than a guess.
+    const cameraWasOn = faceEnabled && faceAnalyzer.isActive
+    const fr = cameraWasOn ? faceAnalyzer.stopAndAnalyze(emotionsRef.current[blockIndex]?.top) : null
+    const br = cameraWasOn ? bodyAnalyzer.stopAndSummarize() : null
+    if (!cameraWasOn) {
+      faceAnalyzer.stopCapture()
+      bodyAnalyzer.stop()
     }
-    if (faceEnabled) {
-      // Whole take summarised (null when no body was in view)
-      const br = bodyAnalyzer.stopAndSummarize()
-      setBodyResults((prev) => ({ ...prev, [blockIndex]: br }))
-    }
+    faceResultRef.current = fr
+    setFaceResults((prev) => withResult(prev, blockIndex, fr))
+    setBodyResults((prev) => withResult(prev, blockIndex, br))
 
     analyseTake(blockIndex, wav, recognitionDone)
   }, [recorder, analyseTake, blockIndex, faceEnabled, faceAnalyzer, bodyAnalyzer])

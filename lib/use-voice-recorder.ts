@@ -75,7 +75,11 @@ export async function analyzeVoice(wav: Blob, scriptText?: string): Promise<Voic
   const res = await fetch("/api/voice/analyze", { method: "POST", body: form })
   const data = await res.json().catch(() => ({}))
   if (res.ok) return data
-  if (res.status === 422) throw new Error("We couldn't hear enough speech. Try again a little closer to the mic.")
+  if (res.status === 422) {
+    const noSpeech = new Error("We couldn't hear enough speech. Try again a little closer to the mic.")
+    noSpeech.name = "NoSpeechError" // the take is not scored at all
+    throw noSpeech
+  }
   if (res.status === 503) throw new Error("Voice analysis is offline, so only line accuracy was scored.")
   throw new Error(data.error ?? "Voice analysis failed.")
 }
