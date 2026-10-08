@@ -102,7 +102,7 @@ function ScriptPanel({ scene, sceneLines }: Readonly<{ scene: any; sceneLines: s
     <div className="text-center py-6">
       <BookOpen className="w-10 h-10 text-white/20 mx-auto mb-3" />
       <p className="text-sm text-white/40">No script text stored for this entry.</p>
-      <p className="text-xs text-white/25 mt-1">Upload a script with text content to see it here.</p>
+      <p className="text-xs text-white/25 mt-1">Choose a scene from the Script Library to see it here.</p>
     </div>
   )
 }

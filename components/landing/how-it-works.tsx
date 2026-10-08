@@ -6,7 +6,7 @@ const ACTS = [
     act:   "Act I",
     icon:  BookOpenText,
     title: "Choose your scene",
-    body:  "Pick from 5,716 scenes across 30 screenplays, or upload your own script. Every speech comes pre-read for its target emotion.",
+    body:  "Pick from 3,582 dialogue scenes across 30 screenplays. Every speech comes pre-read for its target emotion.",
   },
   {
     act:   "Act II",

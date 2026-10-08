@@ -5,6 +5,7 @@ import Script from "@/models/Script"
 import Scene from "@/models/Scene"
 import LibraryScript from "@/models/LibraryScript"
 import { getSession } from "@/lib/session"
+import { hasDialogue } from "@/lib/scene-dialogue"
 
 function parseElements(elements: any[]) {
   const blocks: any[] = []
@@ -49,11 +50,14 @@ function parseElements(elements: any[]) {
   return blocks
 }
 
-function buildSceneData(embedded: any[], totalScenes: number) {
-  return embedded.map((s: any) => ({
-    number:      s.sceneNumber,
-    title:       s.sceneHeading || `Scene ${s.sceneNumber}`,
-    description: `Scene ${s.sceneNumber} of ${totalScenes}`,
+// Only scenes with dialogue (scene numbers stay the original ones, so existing links keep working)
+function buildSceneData(embedded: any[], _totalScenes?: number) {
+  const scenes = embedded.filter((s: any) => hasDialogue(s.elements))
+  return scenes.map((s: any, i: number) => ({
+    number:      s.sceneNumber,       // original number (links)
+    position:    i + 1,                // 1, 2, 3… among the scenes shown
+    title:       s.sceneHeading || `Scene ${i + 1}`,
+    description: `Scene ${i + 1} of ${scenes.length}`,
     emotion:     "To be determined",
     duration:    `~${Math.max(1, Math.ceil((s.elements?.length ?? 0) / 10))} min`,
     blocks:      parseElements(s.elements ?? []),
@@ -76,7 +80,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 
     if (dbScript) {
       const embedded: any[] = Array.isArray(dbScript.scenes) ? dbScript.scenes : []
-      const totalScenes: number = dbScript.totalScenes ?? embedded.length
+      const totalScenes: number = embedded.filter((s: any) => hasDialogue(s.elements)).length
       const sceneData = embedded.length > 0
         ? buildSceneData(embedded, totalScenes)
         : [{ number: 1, title: dbScript.title ?? "Full Script", description: "No scene data available", emotion: "To be determined", duration: "Unknown", blocks: [], lines: [] }]
@@ -98,7 +102,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     if (!libScript) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
     const libEmbedded: any[] = Array.isArray(libScript.scenes) ? libScript.scenes : []
-    const libTotalScenes: number = libScript.totalScenes ?? libEmbedded.length
+    const libTotalScenes: number = libEmbedded.filter((s: any) => hasDialogue(s.elements)).length
 
     return NextResponse.json({
       id:          libScript._id.toString(),

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react"
 import Link from "next/link"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useSearchParams } from "next/navigation"
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion"
 import { AlertCircle, ArrowLeft, Eye, EyeOff, GraduationCap, Loader2, Lock, Mail, Presentation, User } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
@@ -88,13 +88,9 @@ function LoginContent() {
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
 
+  // No automatic redirect when a previous session is still active: signing in only ever happens when the
+  // person types their details and presses the button. An active session is just mentioned (see below).
   const { user } = useAuth()
-  const router = useRouter()
-
-  // Redirect if already logged in
-  useEffect(() => {
-    if (user) router.replace("/dashboard")
-  }, [user, router])
 
   // Clear error when switching modes
   useEffect(() => { setError("") }, [mode])
@@ -198,13 +194,21 @@ function LoginContent() {
             ))}
           </div>
 
+          {user && (
+            <div className="mt-6 rounded-xl border border-white/[0.08] bg-white/[0.03] p-3 text-sm text-bone/60">
+              You&apos;re still signed in as <span className="text-bone">{user.name}</span>.{" "}
+              <Link href="/dashboard" className="text-spot-300 hover:text-spot-200">Go to your dashboard</Link>, or sign in below.
+            </div>
+          )}
+
           {error && (
             <div className="mt-6 flex items-center gap-2 rounded-xl border border-velvet-500/30 bg-velvet-600/10 p-3 text-sm text-velvet-200" role="alert">
               <AlertCircle className="h-4 w-4 shrink-0" /> {error}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="mt-6 space-y-5">
+          {/* Browser autofill is switched off so the fields start empty: you type your details yourself */}
+          <form onSubmit={handleSubmit} className="mt-6 space-y-5" autoComplete="off">
             <AnimatePresence initial={false}>
               {signup && (
                 <motion.div key="name" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
@@ -216,14 +220,14 @@ function LoginContent() {
             </AnimatePresence>
 
             <Field id="email" label="Email" icon={Mail}>
-              <input id="email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} required autoComplete="email" />
+              <input id="email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} required autoComplete="off" name="actorpro-email" />
             </Field>
 
             <Field id="password" label="Password" icon={Lock}>
               <input
                 id="password" type={showPassword ? "text" : "password"} placeholder={signup ? "At least 6 characters" : "Your password"}
                 value={password} onChange={(e) => setPassword(e.target.value)} className={inputClass} required
-                autoComplete={signup ? "new-password" : "current-password"}
+                autoComplete="new-password" name="actorpro-password"
               />
               <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-bone/30 transition-colors hover:text-bone/70" aria-label={showPassword ? "Hide password" : "Show password"}>
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}

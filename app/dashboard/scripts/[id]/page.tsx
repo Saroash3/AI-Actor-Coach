@@ -9,13 +9,15 @@ import { DifficultyBadge } from "@/components/scripts/difficulty-badge"
 import { Stagger, StaggerItem } from "@/components/magic/reveal"
 import { Spotlight } from "@/components/magic/spotlight"
 import { posterFor } from "@/lib/poster-manifest"
+import { hasDialogue } from "@/lib/scene-dialogue"
 
 export const dynamic = "force-dynamic"
 
 const SCENE_PREVIEW_LIMIT = 30
 
 interface SceneSlate {
-  number:     number
+  number:     number   // original scene number in the screenplay (used in links)
+  position:   number   // 1, 2, 3… among the scenes shown (dialogue-free scenes are hidden)
   title:      string
   duration:   string
   characters: string[]
@@ -24,7 +26,7 @@ interface SceneSlate {
 }
 
 // Summarises a scene for its slate: who's in it, how much talking, and a line to quote
-function slateFromElements(sceneNumber: number, heading: string, elements: any[]): SceneSlate {
+function slateFromElements(sceneNumber: number, heading: string, elements: any[], position: number): SceneSlate {
   const characters: string[] = []
   let speeches = 0
   let excerpt: SceneSlate["excerpt"] = null
@@ -48,6 +50,7 @@ function slateFromElements(sceneNumber: number, heading: string, elements: any[]
 
   return {
     number:   sceneNumber,
+    position,
     title:    heading || `Scene ${sceneNumber}`,
     duration: `~${Math.max(1, Math.ceil((elements?.length ?? 0) / 10))} min`,
     characters,
@@ -57,7 +60,7 @@ function slateFromElements(sceneNumber: number, heading: string, elements: any[]
 }
 
 function buildSlates(embedded: any[]) {
-  return embedded.slice(0, SCENE_PREVIEW_LIMIT).map((s: any) => slateFromElements(s.sceneNumber, s.sceneHeading, s.elements ?? []))
+  return embedded.slice(0, SCENE_PREVIEW_LIMIT).map((s: any, i: number) => slateFromElements(s.sceneNumber, s.sceneHeading, s.elements ?? [], i + 1))
 }
 
 export default async function ScriptDetailPage({
@@ -74,8 +77,8 @@ export default async function ScriptDetailPage({
     script = preloaded
     const scenes = preloaded.sceneData ?? []
     totalScenes = scenes.length
-    slates = scenes.map((s: any) => ({
-      number: s.number, title: s.title, duration: s.duration, characters: [], speeches: 0,
+    slates = scenes.map((s: any, i: number) => ({
+      number: s.number, position: i + 1, title: s.title, duration: s.duration, characters: [], speeches: 0,
       excerpt: s.lines?.[0] ? { speaker: null, line: s.lines[0] } : null,
     }))
   } else if (id?.length === 24) {
@@ -83,8 +86,9 @@ export default async function ScriptDetailPage({
     try {
       const dbScript = await Script.findById(id).lean<any>()
       if (dbScript) {
-        const embedded: any[] = Array.isArray(dbScript.scenes) ? dbScript.scenes : []
-        totalScenes = dbScript.totalScenes ?? embedded.length
+        // Only scenes where a character speaks can be rehearsed
+        const embedded: any[] = (Array.isArray(dbScript.scenes) ? dbScript.scenes : []).filter((s: any) => hasDialogue(s.elements))
+        totalScenes = embedded.length
         script = {
           id: dbScript._id.toString(),
           title: dbScript.title ?? "Untitled",
@@ -97,8 +101,9 @@ export default async function ScriptDetailPage({
       } else {
         const libScript = await LibraryScript.findById(id).lean<any>()
         if (libScript) {
-          const embedded: any[] = Array.isArray(libScript.scenes) ? libScript.scenes : []
-          totalScenes = libScript.totalScenes ?? embedded.length
+          // Only scenes where a character speaks can be rehearsed
+          const embedded: any[] = (Array.isArray(libScript.scenes) ? libScript.scenes : []).filter((s: any) => hasDialogue(s.elements))
+          totalScenes = embedded.length
           script = {
             id:         libScript._id.toString(),
             title:      libScript.title,
@@ -230,7 +235,7 @@ export default async function ScriptDetailPage({
                       </div>
                       <div className="py-1.5 text-center">
                         <p className="text-[8px] uppercase tracking-widest text-bone/35">Scene</p>
-                        <p className="font-display text-xl leading-none text-spot-200">{scene.number}</p>
+                        <p className="font-display text-xl leading-none text-spot-200">{scene.position}</p>
                       </div>
                     </div>
                     <div className="min-w-0 flex-1">

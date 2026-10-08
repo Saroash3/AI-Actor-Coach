@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import dbConnect from "@/lib/mongodb"
 import LibraryScript from "@/models/LibraryScript"
+import { dialogueSceneCount } from "@/lib/scene-dialogue"
 
 export const dynamic = "force-dynamic"
 
@@ -8,10 +9,11 @@ export async function GET() {
   try {
     await dbConnect()
 
-    const scripts = await LibraryScript
-      .find({}, { title: 1, genre: 1, difficulty: 1, totalScenes: 1 })
-      .sort({ title: 1 })
-      .lean<any[]>()
+    // Scene counts include only scenes with dialogue (counted in the database)
+    const scripts = await LibraryScript.aggregate([
+      { $project: { title: 1, genre: 1, difficulty: 1, totalScenes: dialogueSceneCount } },
+      { $sort: { title: 1 } },
+    ])
 
     return NextResponse.json({
       scripts: scripts.map((s) => ({

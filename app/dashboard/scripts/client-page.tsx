@@ -9,20 +9,13 @@ import {
 } from "@tanstack/react-table"
 import { AnimatePresence, motion } from "framer-motion"
 import {
-  ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, Film, LayoutGrid,
-  Library, Loader2, Plus, Rows3, Search, Trash2, Upload, X,
+  ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, Film, LayoutGrid, Rows3, Search, X,
 } from "lucide-react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
-  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
 import { cn } from "@/lib/utils"
 import { FilmPoster } from "@/components/scripts/film-poster"
 import { DifficultyBadge } from "@/components/scripts/difficulty-badge"
-import UploadScriptModal from "./upload-modal"
 
 interface ScriptRow {
   id:         string
@@ -71,31 +64,18 @@ export default function ScriptLibraryClient({ libraryScripts }: Readonly<{ libra
   const searchParams = useSearchParams()
   const router = useRouter()
 
-  const [tab, setTab] = useState<"library" | "my-scripts">(searchParams.get("tab") === "my-scripts" ? "my-scripts" : "library")
+  // Library only: uploading your own scripts was removed (practice uses the curated film library)
   const [view, setView] = useState<"posters" | "table">("posters")
-  const [userScripts, setUserScripts] = useState<ScriptRow[]>([])
-  const [loadingMine, setLoadingMine] = useState(true)
   const [search, setSearch] = useState(searchParams.get("q") ?? "")
   const [genre, setGenre] = useState<string>("all")
   const [difficulty, setDifficulty] = useState<string | null>(null)
   const [sorting, setSorting] = useState<SortingState>([{ id: "title", desc: false }])
-  const [showUpload, setShowUpload] = useState(false)
-  const [toDelete, setToDelete] = useState<ScriptRow | null>(null)
-  const [deleting, setDeleting] = useState(false)
 
   // Header search navigates here with ?q=; keep the box in sync
   useEffect(() => { setSearch(searchParams.get("q") ?? "") }, [searchParams])
 
-  useEffect(() => {
-    fetch("/api/scripts")
-      .then((r) => r.json())
-      .then((d) => setUserScripts((d.scripts ?? []).map(toRow)))
-      .catch(() => {})
-      .finally(() => setLoadingMine(false))
-  }, [])
-
   const library = useMemo(() => libraryScripts.map(toRow), [libraryScripts])
-  const source = tab === "library" ? library : userScripts
+  const source = library
 
   // Genre and difficulty are applied before the table; search and sorting inside it
   const data = useMemo(
@@ -139,22 +119,13 @@ export default function ScriptLibraryClient({ libraryScripts }: Readonly<{ libra
       header: () => <span className="sr-only">Actions</span>,
       cell: ({ row }) => (
         <div className="flex items-center justify-end gap-2">
-          {tab === "my-scripts" && (
-            <button
-              onClick={() => setToDelete(row.original)}
-              className="rounded-full p-2 text-bone/40 transition-colors hover:bg-velvet-600/15 hover:text-velvet-300"
-              aria-label={`Delete ${row.original.title}`}
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
-          )}
           <Link href={`/dashboard/scripts/${row.original.id}`} className="rounded-full border border-white/10 px-4 py-1.5 text-xs text-bone/80 transition-colors hover:border-spot-400/40 hover:text-spot-200">
             Open
           </Link>
         </div>
       ),
     },
-  ], [tab])
+  ], [])
 
   const table = useReactTable({
     data,
@@ -182,18 +153,6 @@ export default function ScriptLibraryClient({ libraryScripts }: Readonly<{ libra
     if (searchParams.get("q")) router.replace("/dashboard/scripts")
   }
 
-  const confirmDelete = async () => {
-    if (!toDelete) return
-    setDeleting(true)
-    try {
-      await fetch(`/api/scripts/${toDelete.id}`, { method: "DELETE" })
-      setUserScripts((prev) => prev.filter((s) => s.id !== toDelete.id))
-    } finally {
-      setDeleting(false)
-      setToDelete(null)
-    }
-  }
-
   return (
     <div className="mx-auto max-w-7xl space-y-8">
       {/* Title */}
@@ -204,27 +163,13 @@ export default function ScriptLibraryClient({ libraryScripts }: Readonly<{ libra
             Pick your <span className="italic text-gilded">next role</span>
           </h1>
           <p className="mt-2 text-bone/55">
-            {library.length} screenplays, {library.reduce((n, s) => n + s.scenes, 0).toLocaleString()} scenes, plus anything you upload.
+            {library.length} screenplays, {library.reduce((n, s) => n + s.scenes, 0).toLocaleString()} scenes with dialogue to rehearse.
           </p>
         </div>
-        <button onClick={() => setShowUpload(true)} className="btn-spotlight self-start px-5 py-2.5 text-sm sm:self-auto">
-          <Plus className="h-4 w-4" /> Upload a script
-        </button>
       </div>
 
       {/* Toolbar */}
       <div className="panel flex flex-col gap-4 p-4 lg:flex-row lg:items-center">
-        <Tabs value={tab} onValueChange={(v) => { setTab(v as typeof tab); setGenre("all"); setDifficulty(null) }}>
-          <TabsList className="h-10 rounded-full bg-black/30 p-1">
-            <TabsTrigger value="library" className="gap-2 rounded-full px-4 data-[state=active]:bg-spot-400/15 data-[state=active]:text-spot-100">
-              <Library className="h-4 w-4" /> Library <span className="text-bone/40">{library.length}</span>
-            </TabsTrigger>
-            <TabsTrigger value="my-scripts" className="gap-2 rounded-full px-4 data-[state=active]:bg-spot-400/15 data-[state=active]:text-spot-100">
-              <Upload className="h-4 w-4" /> My scripts <span className="text-bone/40">{userScripts.length}</span>
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
-
         <div className="relative flex-1">
           <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-bone/30" />
           <input
@@ -288,26 +233,12 @@ export default function ScriptLibraryClient({ libraryScripts }: Readonly<{ libra
       </div>
 
       {/* Results */}
-      {tab === "my-scripts" && loadingMine ? (
-        <div className="flex flex-col items-center py-24 text-bone/40">
-          <Loader2 className="mb-3 h-8 w-8 animate-spin text-spot-300" /> Loading your scripts…
-        </div>
-      ) : resultCount === 0 ? (
+      {resultCount === 0 ? (
         <div className="panel flex flex-col items-center px-6 py-20 text-center">
           <Film className="h-12 w-12 text-bone/15" />
-          <h3 className="mt-4 font-display text-2xl text-bone">
-            {tab === "my-scripts" && userScripts.length === 0 ? "Your shelf is empty" : "No scripts match"}
-          </h3>
-          <p className="mt-2 max-w-sm text-bone/50">
-            {tab === "my-scripts" && userScripts.length === 0
-              ? "Upload a script (a .txt file or pasted text) and it will be split into scenes you can rehearse."
-              : "Try a different search, genre or difficulty."}
-          </p>
-          {tab === "my-scripts" && userScripts.length === 0 ? (
-            <button onClick={() => setShowUpload(true)} className="btn-spotlight mt-6 px-5 py-2.5 text-sm"><Plus className="h-4 w-4" /> Upload a script</button>
-          ) : (
-            <button onClick={clearFilters} className="mt-6 rounded-full border border-white/10 px-5 py-2.5 text-sm text-bone/80 hover:border-white/25">Clear filters</button>
-          )}
+          <h3 className="mt-4 font-display text-2xl text-bone">No scripts match</h3>
+          <p className="mt-2 max-w-sm text-bone/50">Try a different search, genre or difficulty.</p>
+          <button onClick={clearFilters} className="mt-6 rounded-full border border-white/10 px-5 py-2.5 text-sm text-bone/80 hover:border-white/25">Clear filters</button>
         </div>
       ) : view === "posters" ? (
         <motion.div layout className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
@@ -323,15 +254,6 @@ export default function ScriptLibraryClient({ libraryScripts }: Readonly<{ libra
                 className="relative"
               >
                 <FilmPoster script={row.original} />
-                {tab === "my-scripts" && (
-                  <button
-                    onClick={() => setToDelete(row.original)}
-                    className="absolute bottom-4 right-4 z-10 rounded-full bg-black/50 p-2 text-bone/60 backdrop-blur transition-colors hover:bg-velvet-600/30 hover:text-velvet-200"
-                    aria-label={`Delete ${row.original.title}`}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                )}
               </motion.div>
             ))}
           </AnimatePresence>
@@ -378,24 +300,6 @@ export default function ScriptLibraryClient({ libraryScripts }: Readonly<{ libra
         </div>
       )}
 
-      {showUpload && <UploadScriptModal onClose={() => setShowUpload(false)} />}
-
-      <AlertDialog open={toDelete !== null} onOpenChange={(open) => !open && setToDelete(null)}>
-        <AlertDialogContent className="border-white/10 bg-stage-850 text-bone">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="font-display text-2xl">Strike this script?</AlertDialogTitle>
-            <AlertDialogDescription className="text-bone/55">
-              &ldquo;{toDelete?.title}&rdquo; and all its scenes will be removed from your shelf. This can&apos;t be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-full border-white/10 bg-transparent text-bone hover:bg-white/5 hover:text-bone">Keep it</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} disabled={deleting} className="btn-velvet px-5">
-              {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />} Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   )
 }

@@ -3,6 +3,7 @@ import ScriptLibraryClient from "./client-page"
 import { preloadedScripts } from "@/lib/preloaded-scripts"
 import dbConnect from "@/lib/mongodb"
 import LibraryScript from "@/models/LibraryScript"
+import { dialogueSceneCount } from "@/lib/scene-dialogue"
 
 export const dynamic = "force-dynamic"
 
@@ -11,10 +12,11 @@ export default async function ScriptLibraryPage() {
 
   try {
     await dbConnect()
-    const docs = await LibraryScript
-      .find({}, { title: 1, genre: 1, difficulty: 1, totalScenes: 1 })
-      .sort({ title: 1 })
-      .lean<any[]>()
+    // Scene counts include only scenes with dialogue (counted in the database)
+    const docs = await LibraryScript.aggregate([
+      { $project: { title: 1, genre: 1, difficulty: 1, dialogueScenes: dialogueSceneCount } },
+      { $sort: { title: 1 } },
+    ])
 
     libraryScripts = docs.map((s: any) => ({
       _id:        s._id.toString(),
@@ -22,7 +24,7 @@ export default async function ScriptLibraryPage() {
       author:     "Film",
       genre:      s.genre       ?? "Film",
       difficulty: s.difficulty  ?? "Intermediate",
-      scenes:     s.totalScenes ?? 0,
+      scenes:     s.dialogueScenes ?? 0,
     }))
   } catch {
     // MongoDB unavailable — fall back to hardcoded scripts

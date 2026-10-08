@@ -186,7 +186,7 @@ export function Hero() {
           >
             {[
               ["30", "screenplays"],
-              ["5,716", "scenes to rehearse"],
+              ["3,582", "scenes with dialogue"],
               ["7", "emotions, in voice and face"],
             ].map(([n, label]) => (
               <div key={label}>
